@@ -1,5 +1,7 @@
+import { Crosshair } from 'lucide-react'
 import { Speaker, TACTIC_LABEL } from '@shared/protocol'
 import { useAutoScroll } from '../hooks/useAutoScroll'
+import { redactText } from '../lib/redaction'
 import { TACTIC_TONE } from '../lib/tacticStyle'
 import { useSessionStore } from '../store/sessionStore'
 
@@ -13,7 +15,12 @@ export function AnalysisPanel() {
   const flags = useSessionStore((s) => s.flags)
   const turns = useSessionStore((s) => s.turns)
   const risk = useSessionStore((s) => s.risk)
+  const ask = useSessionStore((s) => s.ask)
   const scrollRef = useAutoScroll<HTMLDivElement>(`${flagIds.length}`)
+
+  const hasAsk = ask !== null && ask.action.trim().length > 0
+  const askAction = hasAsk ? redactText(ask.action).masked : ''
+  const askTarget = hasAsk && ask.target.trim() ? redactText(ask.target).masked : ''
 
   const speakerLabel = (turnId: string): string => {
     const sp = turns[turnId]?.speaker
@@ -28,6 +35,21 @@ export function AnalysisPanel() {
         </span>
         <span className="font-mono text-[11px] text-muted tabular-nums">risk {Math.round(risk)}</span>
       </header>
+
+      {hasAsk && (
+        <div className="flex items-start gap-2 border-b border-hairline bg-raised px-5 py-2.5">
+          <Crosshair className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
+          <div className="min-w-0">
+            <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
+              Caller wants
+            </div>
+            <div className="text-[13px] font-semibold leading-snug text-ink">
+              {askAction}
+              {askTarget && <span className="text-ink-soft"> — {askTarget}</span>}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div ref={scrollRef} className="flex-1 space-y-2.5 overflow-y-auto px-5 py-5">
         {flagIds.length === 0 ? (

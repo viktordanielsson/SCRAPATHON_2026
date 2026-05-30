@@ -101,8 +101,15 @@ export type AlertLevel = (typeof AlertLevel)[keyof typeof AlertLevel]
 export interface TranscriptTurnBody {
   turnId: string
   speaker: Speaker
+  /** The RAW spoken line as transcribed — what the live transcript shows. */
   text: string
   final: boolean
+  /**
+   * Optional English rendering of `text` from the detector. NOT shown live (the
+   * live transcript stays raw); carried so a saved call can offer an opt-in
+   * "show English" view without re-translating.
+   */
+  translation?: string
   /** Audio offsets within the call, ms. Optional. */
   startMs?: number
   endMs?: number
@@ -153,6 +160,20 @@ export interface ServerEventPayloadMap {
     contributors?: { tactic: Tactic; weight: number }[]
   }
 
+  /**
+   * "The Ask" — the single concrete sensitive action the caller is trying to get
+   * the agent to perform, refined as the call sharpens. Drives the imperative
+   * banner and the Analysis panel headline. An empty `action` is never emitted.
+   */
+  'ask.update': {
+    /** Short verb phrase, e.g. "reset MFA", "disclose the verification code". */
+    action: string
+    /** What it acts on, e.g. "account ending 4827". May be empty. */
+    target: string
+    /** The transcript turn that revealed or sharpened the ask. */
+    sourceTurnId?: string
+  }
+
   /** Voice-authenticity / deepfake score. 0–100 (lower = more synthetic). Experimental. */
   'voice.score': {
     score: number
@@ -200,6 +221,7 @@ export const SERVER_EVENT_TYPES = [
   'transcript.turn',
   'tactic.flag',
   'risk.update',
+  'ask.update',
   'voice.score',
   'alert',
   'session.summary',

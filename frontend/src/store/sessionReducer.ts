@@ -15,6 +15,8 @@ export interface TurnState {
   speaker: Speaker
   text: string
   final: boolean
+  /** Detector's English rendering of `text`, for an opt-in later view (not shown live). */
+  translation?: string
   startMs?: number
   endMs?: number
 }
@@ -34,6 +36,12 @@ export interface AlertState {
   riskAtFire: number
   relatedFlagIds: string[]
   dismissed: boolean
+}
+
+export interface AskState {
+  action: string
+  target: string
+  sourceTurnId?: string
 }
 
 export type SummaryState = ServerEventPayloadMap['session.summary']
@@ -56,6 +64,7 @@ export interface SessionState {
   voiceScore: number | null
   voiceEnabled: boolean
   alerts: AlertState[]
+  ask: AskState | null
   summary: SummaryState | null
   startedAt: number | null
   endedAt: number | null
@@ -78,6 +87,7 @@ export function freshState(): SessionState {
     voiceScore: null,
     voiceEnabled: false,
     alerts: [],
+    ask: null,
     summary: null,
     startedAt: null,
     endedAt: null,
@@ -126,6 +136,7 @@ export function reduce(state: SessionState, evt: ServerEvent): SessionState {
           speaker: t.speaker,
           text: t.text,
           final: t.final,
+          translation: t.translation,
           startMs: t.startMs,
           endMs: t.endMs,
         }
@@ -150,6 +161,14 @@ export function reduce(state: SessionState, evt: ServerEvent): SessionState {
         s.peakRisk = Math.max(s.peakRisk, r.score)
         s.riskHistory.push({ seq: evt.seq, score: r.score })
         if (s.riskHistory.length > RISK_HISTORY_CAP) s.riskHistory.shift()
+        break
+      }
+      case 'ask.update': {
+        s.ask = {
+          action: evt.payload.action,
+          target: evt.payload.target,
+          sourceTurnId: evt.payload.sourceTurnId,
+        }
         break
       }
       case 'voice.score': {

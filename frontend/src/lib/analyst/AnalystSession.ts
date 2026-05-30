@@ -9,8 +9,17 @@ const LIVE_MODEL = 'gemini-3.1-flash-live-preview'
 const SILENT_INSTRUCTION =
   'You are a passive, silent transcription service for an English-language phone call between a support agent and a caller. Do NOT speak, respond, greet, or comment — produce no output of your own. Just listen.'
 
-/** Finalize a turn after this much silence (no new transcription fragments). */
-const TURN_GAP_MS = 1200
+/** Finalize a turn after this much silence (no new transcription fragments).
+ *  Shorter = lines commit and get analyzed sooner (more responsive transcript). */
+const TURN_GAP_MS = 700
+
+/** Also finalize early once the line reaches a sentence boundary past this
+ *  length, so a long utterance is analyzed sentence-by-sentence instead of in
+ *  one late block when the speaker finally pauses. */
+const MIN_SENTENCE_CHARS = 24
+
+/** Hard cap so a run-on (or punctuation-less transcription) still chunks. */
+const MAX_TURN_CHARS = 180
 
 export type AnalystStatus = 'connecting' | 'live' | 'ended' | 'error'
 
@@ -20,7 +29,15 @@ interface AnalysisResponse {
   text?: string
   tactics?: { tactic?: string; confidence?: number; rationale?: string; quote?: string }[]
   risk?: number
+  /** "The Ask" — what the caller is trying to get done. Empty strings if none yet. */
+  ask?: { action?: string; target?: string }
   error?: string
+}
+
+export interface AnalystAsk {
+  action: string
+  target: string
+  turnId: string
 }
 
 export interface AnalystFlag {
@@ -35,6 +52,7 @@ export interface AnalystCallbacks {
   onTurn: (turn: TranscriptTurnBody) => void
   onFlag: (flag: AnalystFlag) => void
   onRisk: (score: number) => void
+  onAsk: (ask: AnalystAsk) => void
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
@@ -122,6 +140,16 @@ export class AnalystSession {
       text: this.currentText,
       final: false,
     })
+    // Chunk into shorter turns: finalize at a sentence boundary (or a hard cap)
+    // so each /analyze sees less and feedback arrives sooner; otherwise wait for
+    // a short silence gap. (If transcription lacks punctuation, the gap/cap still
+    // bound turn length.)
+    const trimmed = this.currentText.trim()
+    const endsSentence = /[.!?]["')\]]?\s*$/.test(this.currentText)
+    if (trimmed.length >= MAX_TURN_CHARS || (endsSentence && trimmed.length >= MIN_SENTENCE_CHARS)) {
+      this.finalizeTurn()
+      return
+    }
     if (this.gapTimer) clearTimeout(this.gapTimer)
     this.gapTimer = setTimeout(() => this.finalizeTurn(), TURN_GAP_MS)
   }
@@ -160,8 +188,8 @@ export class AnalystSession {
   }
 
   private async analyzeOne(turnId: string, text: string): Promise<void> {
+    if (this.stopped) return // teardown already happened — don't analyze a dead session
     let speaker: Speaker = this.provisionalSpeaker()
-    let finalText = text
     try {
       const res = await fetch('/analyze', {
         method: 'POST',
@@ -170,9 +198,15 @@ export class AnalystSession {
       })
       const data = (await res.json().catch(() => ({}))) as AnalysisResponse
       if (!res.ok || data.error) throw new Error(data.error ?? `analyze failed (${res.status})`)
+      // The fetch can outlive a stop()/restart; never emit into a fresh run.
+      if (this.stopped) return
       speaker = data.speaker === 'Agent' ? Speaker.Agent : Speaker.Caller
-      if (data.text && data.text.trim()) finalText = data.text.trim() // English-normalized line
-      this.cb.onTurn({ turnId, speaker, text: finalText, final: true }) // correct speaker + language
+      // Keep the live transcript RAW (no live translation — that's what made lines
+      // bleed into each other); just correct the speaker, and carry the detector's
+      // English version as `translation` for an opt-in later view.
+      const english = data.text?.trim()
+      const translation = english && english !== text.trim() ? english : undefined
+      this.cb.onTurn({ turnId, speaker, text, final: true, translation })
       for (const t of data.tactics ?? []) {
         if (t.tactic && (ALL_TACTICS as string[]).includes(t.tactic)) {
           this.cb.onFlag({
@@ -184,11 +218,16 @@ export class AnalystSession {
         }
       }
       if (typeof data.risk === 'number') this.cb.onRisk(clamp(data.risk, 0, 100))
+      // "The Ask" — only surface it once the caller has actually asked for
+      // something; never overwrite a known ask with a later empty line.
+      const action = data.ask?.action?.trim()
+      if (action) this.cb.onAsk({ action, target: data.ask?.target?.trim() ?? '', turnId })
     } catch (e) {
       // Per-turn analysis failure is non-fatal — keep the transcript, just log it.
       console.warn('[sentinel] /analyze failed:', e instanceof Error ? e.message : e)
     } finally {
-      this.history.push({ speaker: speaker === Speaker.Agent ? 'Agent' : 'Caller', text: finalText })
+      // History keeps the raw line (the actual conversation) for detector context.
+      this.history.push({ speaker: speaker === Speaker.Agent ? 'Agent' : 'Caller', text })
     }
   }
 
