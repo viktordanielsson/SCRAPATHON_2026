@@ -1,41 +1,50 @@
 import { useSessionStore } from '../store/sessionStore'
 import { Panel } from './Panel'
 
-/** Experimental voice-authenticity (deepfake) score. Degrades gracefully when absent. */
+/** Experimental voice-authenticity (deepfake) score. Degrades gracefully. */
 export function VoiceAuthMeter() {
   const score = useSessionStore((s) => s.voiceScore)
   const enabled = useSessionStore((s) => s.voiceEnabled)
 
   const hasSignal = enabled && score !== null
   const pct = hasSignal ? score : 0
-  // Lower score = more synthetic = more alarming.
-  const color = !hasSignal ? '#3a4658' : pct < 40 ? '#FF3B47' : pct < 70 ? '#F5B83D' : '#2BD96A'
+  const color = !hasSignal
+    ? '#B9B7AE'
+    : pct < 40
+      ? '#DC2626'
+      : pct < 70
+        ? '#B7791F'
+        : '#3F8F6B'
+  const caption = !hasSignal
+    ? 'no signal'
+    : pct < 40
+      ? 'likely synthetic'
+      : pct < 70
+        ? 'anomalous'
+        : 'authentic'
 
   return (
     <Panel
-      title="Voice Authenticity"
-      right={<span className="text-[9px] uppercase tracking-wider text-muted">experimental</span>}
+      title="Voice authenticity"
+      right={
+        <span className="text-[10px] uppercase tracking-wider text-muted">experimental</span>
+      }
     >
-      <div className="flex items-center gap-3">
-        <span className="font-mono text-2xl font-bold" style={{ color, fontVariantNumeric: 'tabular-nums' }}>
+      <div className="flex items-center gap-4">
+        <span
+          className="text-[28px] font-semibold leading-none tabular-nums"
+          style={{ color }}
+        >
           {hasSignal ? Math.round(pct) : '—'}
         </span>
         <div className="flex-1">
-          <div className="h-2 overflow-hidden rounded-full bg-edge">
+          <div className="h-1.5 overflow-hidden rounded-full bg-raised">
             <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${hasSignal ? pct : 0}%`, backgroundColor: color }}
+              className="h-full rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${pct}%`, background: color }}
             />
           </div>
-          <p className="mt-1 font-mono text-[10px] text-muted">
-            {hasSignal
-              ? pct < 40
-                ? 'likely synthetic'
-                : pct < 70
-                  ? 'anomalous'
-                  : 'human'
-              : 'no signal'}
-          </p>
+          <p className="mt-1.5 text-[11px] text-muted">{caption}</p>
         </div>
       </div>
     </Panel>

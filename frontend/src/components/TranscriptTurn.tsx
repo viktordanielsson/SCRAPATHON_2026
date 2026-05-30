@@ -1,7 +1,8 @@
 import clsx from 'clsx'
-import { Speaker, TACTIC_COLOR } from '@shared/protocol'
+import { Speaker } from '@shared/protocol'
 import type { FlagState, TurnState } from '../store/sessionReducer'
 import { formatClock } from '../lib/format'
+import { TACTIC_TONE } from '../lib/tacticStyle'
 import { TacticBadgeInline } from './TacticBadgeInline'
 
 interface Props {
@@ -11,44 +12,55 @@ interface Props {
 
 export function TranscriptTurn({ turn, flags }: Props) {
   const isCaller = turn.speaker === Speaker.Caller
-  const isAgent = turn.speaker === Speaker.Agent
+  const speakerLabel =
+    turn.speaker === Speaker.Caller ? 'Caller' : turn.speaker === Speaker.Agent ? 'Agent' : 'System'
+
   // Caller turns "heat" by the strongest tactic on them.
   const hottest = flags.reduce<FlagState | null>(
     (acc, f) => (acc === null || f.confidence > acc.confidence ? f : acc),
     null,
   )
-  const heat = hottest ? TACTIC_COLOR[hottest.tactic] : undefined
+  const heat = hottest ? TACTIC_TONE[hottest.tactic] : undefined
 
   return (
-    <div className={clsx('flex flex-col', isCaller ? 'items-end pl-8' : 'items-start pr-8')}>
-      <div className="mb-0.5 flex items-center gap-2 font-mono text-[10px] text-muted">
-        <span>{isCaller ? '▶ CALLER' : isAgent ? '◀ AGENT' : '◦ SYSTEM'}</span>
-        {turn.startMs !== undefined && <span>{formatClock(turn.startMs)}</span>}
-        {!turn.final && <span className="text-accent">●●● live</span>}
-      </div>
-      <div
-        className={clsx(
-          'max-w-[80%] rounded-md border px-3 py-2 font-mono text-[13px] leading-snug',
-          isAgent && 'border-l-2 border-l-accent border-edge bg-surface text-ink',
-          isCaller && 'bg-surface text-ink',
-          !turn.final && 'opacity-60',
-        )}
-        style={
-          isCaller
-            ? { borderColor: heat ?? '#1f2733', borderRightWidth: heat ? 3 : 1 }
-            : undefined
-        }
-      >
-        {turn.text}
-        {!turn.final && <span className="ml-0.5 inline-block animate-pulse">▌</span>}
-      </div>
-      {flags.length > 0 && (
-        <div className={clsx('w-[80%]', isCaller ? 'self-end' : 'self-start')}>
-          {flags.map((f) => (
-            <TacticBadgeInline key={f.tactic + f.turnId + f.confidence} flag={f} />
-          ))}
+    <div className="flex gap-3">
+      <div className="w-14 shrink-0 pt-1.5 text-right">
+        <div className={clsx('text-[11px] font-semibold', isCaller ? 'text-ink' : 'text-accent')}>
+          {speakerLabel}
         </div>
-      )}
+        {turn.startMs !== undefined && (
+          <div className="font-mono text-[10px] text-muted tabular-nums">
+            {formatClock(turn.startMs)}
+          </div>
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div
+          className={clsx(
+            'rounded-md px-3 py-2 text-[13.5px] leading-relaxed',
+            isCaller ? 'bg-raised text-ink' : 'text-ink-soft',
+            !turn.final && 'opacity-60',
+          )}
+          style={isCaller && heat ? { borderLeft: `2px solid ${heat}` } : undefined}
+        >
+          {turn.text}
+          {!turn.final && <span className="ml-0.5 animate-pulse text-muted">▌</span>}
+        </div>
+
+        {flags.length > 0 && (
+          <>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {flags.map((f) => (
+                <TacticBadgeInline key={f.tactic + f.turnId + f.confidence} flag={f} />
+              ))}
+            </div>
+            {hottest && (
+              <p className="mt-1 text-[11.5px] leading-snug text-muted">{hottest.rationale}</p>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

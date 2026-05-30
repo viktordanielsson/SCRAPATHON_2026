@@ -11,22 +11,22 @@ export function TranscriptPanel() {
   const scrollRef = useAutoScroll<HTMLDivElement>(`${turnIds.length}:${flagIds.length}`)
 
   return (
-    <section className="flex min-h-0 flex-col rounded-md border border-edge bg-panel/40">
-      <header className="flex items-center justify-between border-b border-edge px-4 py-2">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
-          Live Transcript
+    <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-hairline bg-surface shadow-card">
+      <header className="flex items-center justify-between border-b border-hairline px-5 py-3">
+        <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+          Transcript
         </span>
-        <span className="font-mono text-[10px] text-muted">{turnIds.length} turns</span>
+        <span className="font-mono text-[11px] text-muted tabular-nums">
+          {turnIds.length} turns
+        </span>
       </header>
 
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
         {turnIds.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-            <span className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
-              Awaiting call
-            </span>
-            <span className="text-[11px] text-muted/70">
-              Run a scenario to begin live monitoring.
+            <span className="text-[13px] font-medium text-ink-soft">No active call</span>
+            <span className="text-[12px] text-muted">
+              Run a scenario below to begin live monitoring.
             </span>
           </div>
         ) : (

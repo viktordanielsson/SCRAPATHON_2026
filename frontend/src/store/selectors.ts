@@ -48,3 +48,13 @@ export const selActiveTactics = (s: SessionState): Map<Tactic, TacticActivity> =
 /** Flags belonging to a given transcript turn (for inline badges). */
 export const selFlagsForTurn = (s: SessionState, turnId: string) =>
   s.flagIds.map((id) => s.flags[id]).filter((f) => f.turnId === turnId)
+
+/** Distinct tactics seen so far, ordered by peak confidence — the "drivers". */
+export const selDrivers = (s: SessionState): Tactic[] => {
+  const byTactic = new Map<Tactic, number>()
+  for (const id of s.flagIds) {
+    const f = s.flags[id]
+    byTactic.set(f.tactic, Math.max(byTactic.get(f.tactic) ?? 0, f.confidence))
+  }
+  return [...byTactic.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t)
+}

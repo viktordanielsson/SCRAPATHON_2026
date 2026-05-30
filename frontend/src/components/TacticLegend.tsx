@@ -3,7 +3,7 @@ import { ALL_TACTICS } from '@shared/protocol'
 import { useSessionStore } from '../store/sessionStore'
 import { selActiveTactics } from '../store/selectors'
 import { Panel } from './Panel'
-import { TacticCell } from './TacticCell'
+import { TacticRow } from './TacticRow'
 
 export function TacticLegend() {
   const flags = useSessionStore((s) => s.flags)
@@ -15,10 +15,10 @@ export function TacticLegend() {
   )
 
   return (
-    <Panel title="Detected Tactics">
-      <div className="grid grid-cols-3 gap-2">
+    <Panel title="Manipulation tactics" bodyClassName="px-4 py-1">
+      <div className="divide-y divide-hairline">
         {ALL_TACTICS.map((t) => (
-          <TacticCell key={t} tactic={t} activity={activity.get(t)} />
+          <TacticRow key={t} tactic={t} activity={activity.get(t)} />
         ))}
       </div>
     </Panel>
