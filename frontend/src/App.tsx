@@ -1,16 +1,27 @@
+import { useEffect } from 'react'
+import { AppShell } from './components/AppShell'
+import { useSession } from './hooks/useSession'
+
 export default function App() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 font-mono">
-      <div className="text-xs tracking-[0.3em] text-accent">SENTINEL</div>
-      <h1 className="text-2xl font-semibold text-ink">Social Engineering Detection</h1>
-      <p className="max-w-md text-center text-sm text-muted">
-        Real-time call monitoring dashboard. Scaffold is live — UI panels and the backend
-        event contract land next.
-      </p>
-      <div className="mt-2 flex items-center gap-2 text-xs text-safe">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-safe" />
-        SYSTEM STANDBY
-      </div>
-    </div>
-  )
+  const controls = useSession()
+
+  useEffect(() => {
+    // ?scenario=<id> autoplays on load (handy for "show me again").
+    const requested = new URLSearchParams(window.location.search).get('scenario')
+    if (requested) controls.start(requested)
+
+    // [R] resets to a clean Standby between demo runs.
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey) {
+        const tag = (e.target as HTMLElement | null)?.tagName
+        if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') controls.resetDemo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // controls is recreated each render but its methods are stable refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return <AppShell controls={controls} />
 }
