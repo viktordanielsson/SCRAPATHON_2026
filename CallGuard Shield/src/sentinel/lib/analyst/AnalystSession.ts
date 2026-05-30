@@ -11,8 +11,13 @@ const LIVE_MODEL = 'gemini-3.1-flash-live-preview'
 const SILENT_INSTRUCTION =
   'You are a passive, silent transcription service for a phone call between a support agent and a caller. Transcribe speech VERBATIM in its original spoken language — never translate. Do NOT speak, respond, greet, or comment — produce no output of your own. Just listen.'
 
-/** Finalize a chunk after this much silence (no new transcription fragments). */
-const TURN_GAP_MS = 1100
+/**
+ * Finalize a chunk after this much silence (no new transcription fragments).
+ * Lower = snappier turn-taking, but a speaker's own mid-sentence pauses can
+ * split one utterance into several chunks; the diarizer's segment-splitting and
+ * label revisions absorb most of that.
+ */
+const TURN_GAP_MS = 500
 
 /** How many already-attributed turns to give the diarizer as context. */
 const WINDOW = 8

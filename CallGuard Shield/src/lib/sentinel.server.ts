@@ -145,6 +145,8 @@ export async function diarizeTurn(input: DiarizeInput): Promise<DiarizeResult> {
       responseMimeType: "application/json",
       responseSchema: DIARIZE_SCHEMA,
       temperature: 0.2,
+      // Near-real-time structured task — disable "thinking" for lower latency.
+      thinkingConfig: { thinkingBudget: 0 },
     },
   });
   return JSON.parse(r.text ?? "{}") as DiarizeResult;
