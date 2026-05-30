@@ -1,4 +1,5 @@
 import {
+  CallStatus,
   PROTOCOL_VERSION,
   type Envelope,
   type ClientControl,
@@ -39,6 +40,9 @@ export class MockEventSource implements EventSource {
         this.run(control.scenarioId ?? this.scenarioId)
         break
       case 'stop':
+        // Emit a terminal Ended (like the real sources) so the call finalizes
+        // in the history recorder; otherwise clearTimers drops the scripted Ended.
+        if (this.sessionId) this.emit('call.status', { status: CallStatus.Ended })
         this.clearTimers()
         break
       case 'reset':

@@ -15,7 +15,7 @@ export function TacticRow({ tactic, activity }: Props) {
   const conf = active && activity ? activity.maxConfidence : 0
 
   return (
-    <div className="flex items-center gap-3 py-2">
+    <div className="flex items-center gap-3 py-1.5">
       <span className="relative flex h-2 w-2 items-center justify-center">
         {active && activity && (
           <motion.span

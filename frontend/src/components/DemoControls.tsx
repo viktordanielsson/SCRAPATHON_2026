@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Play, RotateCcw, Square } from 'lucide-react'
+import { History, Play, RotateCcw, Square } from 'lucide-react'
 import { CallStatus } from '@shared/protocol'
 import { SCENARIOS, DEFAULT_SCENARIO_ID } from '../scenarios'
 import { useSessionStore } from '../store/sessionStore'
+import { useHistoryStore } from '../store/historyStore'
 import { useTransportMode, type SourceMode } from '../store/useTransportMode'
 import type { SessionControls } from '../hooks/useSession'
+import { HistoryDrawer } from './HistoryDrawer'
 
 const MODE_LABELS: Record<SourceMode, string> = {
   mock: 'Mock',
@@ -14,10 +16,12 @@ const MODE_LABELS: Record<SourceMode, string> = {
 
 export function DemoControls({ controls }: { controls: SessionControls }) {
   const [scenarioId, setScenarioId] = useState(DEFAULT_SCENARIO_ID)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const status = useSessionStore((s) => s.status)
   const running = status === CallStatus.Live || status === CallStatus.Connecting
   const mode = useTransportMode((s) => s.mode)
   const setMode = useTransportMode((s) => s.setMode)
+  const historyCount = useHistoryStore((s) => s.sessions.length)
 
   return (
     <footer className="flex items-center gap-3 border-t border-hairline bg-surface px-6 py-3">
@@ -75,9 +79,20 @@ export function DemoControls({ controls }: { controls: SessionControls }) {
         Reset
       </button>
 
-      <span className="ml-auto font-mono text-[11px] text-muted">
-        [R] reset · ?scenario=id autoplays
-      </span>
+      <button
+        onClick={() => setHistoryOpen(true)}
+        className="ml-auto flex items-center gap-1.5 rounded-md border border-hairline px-3 py-1.5 text-[12px] text-ink-soft transition-colors hover:bg-raised hover:text-ink"
+      >
+        <History className="h-3.5 w-3.5" />
+        History
+        {historyCount > 0 && (
+          <span className="rounded-full bg-raised px-1.5 text-[10px] font-medium tabular-nums text-muted">
+            {historyCount}
+          </span>
+        )}
+      </button>
+
+      <HistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} />
     </footer>
   )
 }

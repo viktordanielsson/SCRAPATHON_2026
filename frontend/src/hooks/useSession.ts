@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createEventSource } from '../lib/transport/createEventSource'
 import type { EventSource } from '../lib/transport/EventSource'
+import { useHistoryStore } from '../store/historyStore'
 import { useSessionStore } from '../store/sessionStore'
 import { useTransportMode } from '../store/useTransportMode'
 
@@ -28,12 +29,21 @@ export function useSession(): SessionControls {
     reset() // switching mode starts from a clean Standby
     const source = createEventSource(mode)
     sourceRef.current = source
-    const unsubscribe = source.subscribe(dispatch)
+    // Pipe every event into the live store AND the history recorder (the
+    // recorder finalizes & persists a call when it ends).
+    const unsubscribe = source.subscribe((e) => {
+      dispatch(e)
+      useHistoryStore.getState().record(e)
+    })
     source.connect()
     source.send({ cmd: 'subscribe' })
     return () => {
-      unsubscribe()
+      // close() first so a terminal Ended is still delivered to the recorder
+      // (the listener is removed by unsubscribe); then finalize as a safety net
+      // for sources whose teardown emits no terminal event (e.g. mock).
       source.close()
+      unsubscribe()
+      useHistoryStore.getState().finalizeCurrent()
       sourceRef.current = null
     }
   }, [dispatch, mode, reset])
@@ -43,9 +53,13 @@ export function useSession(): SessionControls {
       reset() // clean slate so run #2 doesn't inherit run #1
       sourceRef.current?.send({ cmd: 'start', scenarioId })
     },
-    stop: () => sourceRef.current?.send({ cmd: 'stop' }),
+    stop: () => {
+      sourceRef.current?.send({ cmd: 'stop' })
+      useHistoryStore.getState().finalizeCurrent()
+    },
     resetDemo: () => {
       sourceRef.current?.send({ cmd: 'reset' })
+      useHistoryStore.getState().finalizeCurrent() // save before clearing
       reset() // back to Standby
     },
   }

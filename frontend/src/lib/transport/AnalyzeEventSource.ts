@@ -89,6 +89,12 @@ export class AnalyzeEventSource implements EventSource {
           rationale: flag.rationale,
           turnId: flag.turnId,
         }),
+      onAsk: (ask) =>
+        this.emit('ask.update', {
+          action: ask.action,
+          target: ask.target,
+          sourceTurnId: ask.turnId,
+        }),
       onRisk: (score) => {
         const delta = score - this.lastRisk
         this.lastRisk = score

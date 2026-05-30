@@ -66,8 +66,16 @@ const ANALYZE_SCHEMA = {
       },
     },
     risk: { type: Type.NUMBER },
+    ask: {
+      type: Type.OBJECT,
+      properties: {
+        action: { type: Type.STRING },
+        target: { type: Type.STRING },
+      },
+      required: ['action', 'target'],
+    },
   },
-  required: ['speaker', 'text', 'tactics', 'risk'],
+  required: ['speaker', 'text', 'tactics', 'risk', 'ask'],
 }
 
 /**
@@ -105,15 +113,23 @@ function geminiAnalyzeEndpoint(apiKey: string | undefined): Plugin {
             res.end(JSON.stringify({ error: 'invalid JSON' }))
             return
           }
-          const convo = (body.history ?? []).map((h) => `${h.speaker}: ${h.text}`).join('\n')
+          const hist = body.history ?? []
+          const convo = hist.map((h) => `${h.speaker}: ${h.text}`).join('\n')
+          const lastSpeaker = hist.length ? hist[hist.length - 1].speaker : null
+          const expectedNext = lastSpeaker === 'Agent' ? 'Caller' : 'Agent'
           const prompt =
             `Conversation so far:\n${convo || '(start of call)'}\n\n` +
             `Latest line (unattributed):\n${body.text ?? ''}\n\n` +
             `Tasks:\n` +
-            `1) speaker: who said the latest line — "Caller" (phoned in; possible attacker) or "Agent" (support rep)? Infer from content and flow.\n` +
+            `1) speaker: who said the latest line — "Caller" or "Agent"? This is a TWO-PARTY call; the roles are distinct and the speakers GENERALLY ALTERNATE turn by turn. The AGENT (support rep) greets, asks identity-verification questions, follows policy, and offers help. The CALLER phoned in, makes the request, gives details, and — if attacking — applies pressure or claims authority. ${
+              lastSpeaker
+                ? `The previous line was "${lastSpeaker}", so this line is most likely "${expectedNext}" UNLESS it clearly continues the same speaker's own sentence.`
+                : `This is the first line (usually the Caller opening, though the Agent may greet first).`
+            } Actively distinguish the two — do NOT label every line the same role.\n` +
             `2) text: the latest line in clear, fluent ENGLISH. Keep it essentially as-is if already English; translate it if it appears to be in another language (e.g. from speech mis-recognition).\n` +
             `3) tactics: which manipulation tactics, if any, are present in the latest line? Allowed: Urgency, FalseAuthority, Pretexting, Fear, Reciprocity, RapportBuilding.\n` +
             `4) risk: overall manipulation risk of the whole call so far, 0-100.\n` +
+            `5) ask: the single concrete sensitive action the caller is trying to get the agent to perform, as a short verb phrase — e.g. "reset MFA", "disclose the verification code", "change the registered email", "unlock the account", "share the account balance". Set "target" to what it acts on (e.g. "account ending 4827", "the customer's login"). Track it across the WHOLE call, refining as it sharpens. If the caller has not yet asked for anything sensitive, return empty strings for both action and target.\n` +
             `Return JSON.`
           const ai = new GoogleGenAI({ apiKey })
           ai.models
