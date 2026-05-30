@@ -12,6 +12,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\""
   },
   "dependencies": {
+    "@google/genai": "^2.7.0",
     "clsx": "^2.1.1",
     "framer-motion": "^11.11.0",
     "immer": "^11.1.8",

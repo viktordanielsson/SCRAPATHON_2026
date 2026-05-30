@@ -3,7 +3,6 @@ import { Speaker } from '@shared/protocol'
 import type { FlagState, TurnState } from '../store/sessionReducer'
 import { formatClock } from '../lib/format'
 import { TACTIC_TONE } from '../lib/tacticStyle'
-import { TacticBadgeInline } from './TacticBadgeInline'
 
 interface Props {
   turn: TurnState
@@ -47,19 +46,8 @@ export function TranscriptTurn({ turn, flags }: Props) {
           {turn.text}
           {!turn.final && <span className="ml-0.5 animate-pulse text-muted">▌</span>}
         </div>
-
-        {flags.length > 0 && (
-          <>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {flags.map((f) => (
-                <TacticBadgeInline key={f.tactic + f.turnId + f.confidence} flag={f} />
-              ))}
-            </div>
-            {hottest && (
-              <p className="mt-1 text-[11.5px] leading-snug text-muted">{hottest.rationale}</p>
-            )}
-          </>
-        )}
+        {/* Tactic detail now lives in the separate Analysis panel; the left-border
+            heat is kept as a subtle "this line was flagged" cue. */}
       </div>
     </div>
   )
