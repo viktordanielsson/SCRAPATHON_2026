@@ -92,9 +92,8 @@ const DIARIZE_SCHEMA = {
         required: ["id", "speaker"],
       },
     },
-    risk: { type: Type.NUMBER },
   },
-  required: ["segments", "risk"],
+  required: ["segments"],
 };
 
 export interface DiarizeInput {
@@ -114,7 +113,6 @@ export interface DiarizeResult {
   segments?: DiarizeSegment[];
   /** Corrections to earlier turns' speaker labels, keyed by the turn id. */
   revisions?: { id?: string; speaker?: "Caller" | "Agent" }[];
-  risk?: number;
 }
 
 /**
@@ -133,9 +131,8 @@ export async function diarizeTurn(input: DiarizeInput): Promise<DiarizeResult> {
     `1) segments: split the new fragment wherever the speaker changes. For each segment output { speaker: "Caller"|"Agent", text, tactics }. ` +
     `Decide speaker from conversational role cues (greetings / offers to help / identity-verification / policy ⇒ Agent; inbound requests / impersonation / pressure / asking the agent to act ⇒ Caller). ` +
     `Keep the segment text VERBATIM — exactly as transcribed, in its original spoken language. Do NOT translate, paraphrase, or rewrite it (you may fix only obvious ASR spacing/punctuation). If the whole fragment is one speaker, return a single segment.\n` +
-    `2) tactics (per segment): which manipulation tactics, if any, the segment clearly exhibits. Allowed: ${TACTIC_ENUM.join(", ")}. Empty array if none.\n` +
+    `2) tactics (per segment): which manipulation tactics, if any, the segment clearly exhibits, each with a confidence 0-1. Allowed: ${TACTIC_ENUM.join(", ")}. Empty array if none. (The risk score is computed from these flags downstream — be accurate with confidence.)\n` +
     `3) revisions: if this new context reveals an EARLIER turn (from the list above) was mislabeled, include { id, speaker } to correct it. Otherwise omit/empty.\n` +
-    `4) risk: overall social-engineering risk of the whole call so far, 0-100.\n` +
     `Return JSON.`;
   const r = await ai.models.generateContent({
     model: "gemini-2.5-flash",

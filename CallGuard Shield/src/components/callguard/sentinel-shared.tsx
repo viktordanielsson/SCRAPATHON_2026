@@ -4,6 +4,7 @@
  * dark theme. These map the protocol's tactic/risk vocabulary onto CallGuard's
  * icons, colors, and a couple of reusable panels.
  */
+import { memo } from "react";
 import {
   AlertTriangle,
   Drama,
@@ -131,6 +132,65 @@ export interface TranscriptViewTurn extends TurnState {
   flags: FlagState[];
 }
 
+/**
+ * One transcript bubble. Memoized so a streaming interim update only re-renders
+ * the turn that actually changed, not every bubble in the list — the single
+ * biggest win for keeping a fast transcript feeling real-time.
+ */
+const TranscriptRow = memo(
+  function TranscriptRow({ turn, running }: { turn: TranscriptViewTurn; running: boolean }) {
+    const isCaller = turn.speaker === Speaker.Caller;
+    const interim = !turn.final;
+    return (
+      <div className={`flex gap-3 animate-fade-up ${isCaller ? "" : "flex-row-reverse"}`}>
+        <div
+          className={`size-8 shrink-0 rounded-full grid place-items-center text-xs font-semibold ${
+            isCaller ? "bg-[var(--danger)]/15 text-[var(--danger)]" : "bg-[var(--brand-cyan)]/15 text-[var(--brand-cyan)]"
+          }`}
+        >
+          {isCaller ? "C" : "A"}
+        </div>
+        <div className={`max-w-[78%] ${isCaller ? "" : "text-right"}`}>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">{turn.speaker}</div>
+          <div
+            className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+              isCaller ? "bg-white/5 border border-white/5" : "bg-[var(--brand-cyan)]/10 border border-[var(--brand-cyan)]/20"
+            } ${interim ? "text-muted-foreground border-dashed" : ""}`}
+          >
+            {turn.text || "…"}
+            {interim && running && (
+              <span className="inline-block w-1.5 h-4 -mb-0.5 ml-0.5 bg-foreground animate-caret align-middle" />
+            )}
+          </div>
+          {turn.flags.length > 0 && (
+            <div className={`mt-1.5 flex flex-wrap gap-1.5 ${isCaller ? "" : "justify-end"}`}>
+              {turn.flags.map((f, i) => {
+                const Icon = TACTIC_ICON[f.tactic];
+                return (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-[var(--danger)]/12 border border-[var(--danger)]/30 text-[var(--danger)]"
+                    title={f.rationale}
+                  >
+                    <Icon className="size-3" />
+                    {TACTIC_LABEL[f.tactic]}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  },
+  (a, b) =>
+    a.running === b.running &&
+    a.turn.text === b.turn.text &&
+    a.turn.final === b.turn.final &&
+    a.turn.speaker === b.turn.speaker &&
+    a.turn.flags.length === b.turn.flags.length,
+);
+
 /** Live transcript bubbles with inline tactic badges. Caller left, agent right. */
 export function TranscriptView({
   turns,
@@ -143,53 +203,9 @@ export function TranscriptView({
 }) {
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 pr-2">
-      {turns.map((turn) => {
-        const isCaller = turn.speaker === Speaker.Caller;
-        const interim = !turn.final;
-        return (
-          <div key={turn.turnId} className={`flex gap-3 animate-fade-up ${isCaller ? "" : "flex-row-reverse"}`}>
-            <div
-              className={`size-8 shrink-0 rounded-full grid place-items-center text-xs font-semibold ${
-                isCaller ? "bg-[var(--danger)]/15 text-[var(--danger)]" : "bg-[var(--brand-cyan)]/15 text-[var(--brand-cyan)]"
-              }`}
-            >
-              {isCaller ? "C" : "A"}
-            </div>
-            <div className={`max-w-[78%] ${isCaller ? "" : "text-right"}`}>
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
-                {turn.speaker}
-              </div>
-              <div
-                className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                  isCaller ? "bg-white/5 border border-white/5" : "bg-[var(--brand-cyan)]/10 border border-[var(--brand-cyan)]/20"
-                } ${interim ? "text-muted-foreground border-dashed" : ""}`}
-              >
-                {turn.text || "…"}
-                {interim && running && (
-                  <span className="inline-block w-1.5 h-4 -mb-0.5 ml-0.5 bg-foreground animate-caret align-middle" />
-                )}
-              </div>
-              {turn.flags.length > 0 && (
-                <div className={`mt-1.5 flex flex-wrap gap-1.5 ${isCaller ? "" : "justify-end"}`}>
-                  {turn.flags.map((f, i) => {
-                    const Icon = TACTIC_ICON[f.tactic];
-                    return (
-                      <span
-                        key={i}
-                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-[var(--danger)]/12 border border-[var(--danger)]/30 text-[var(--danger)]"
-                        title={f.rationale}
-                      >
-                        <Icon className="size-3" />
-                        {TACTIC_LABEL[f.tactic]}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+      {turns.map((turn) => (
+        <TranscriptRow key={turn.turnId} turn={turn} running={running} />
+      ))}
     </div>
   );
 }

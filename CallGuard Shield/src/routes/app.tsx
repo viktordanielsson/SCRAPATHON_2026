@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import {
   Shield, Mic, MicOff, Square, ShieldAlert, Activity, Clock, ChevronRight,
   Settings, Bell, Search, LayoutDashboard, PhoneCall, History, Building2,
-  ShieldCheck, ArrowUpRight, Bot, Ear, AlertTriangle,
+  ShieldCheck, Bot, Ear, AlertTriangle,
 } from "lucide-react";
 
 import { CallStatus, TACTIC_LABEL, type Tactic } from "@/sentinel/protocol";
@@ -18,6 +18,7 @@ import {
   CriticalBanner, Recommendation, RiskDonut, TacticGrid, TranscriptView,
   TACTIC_ICON, type TranscriptViewTurn,
 } from "@/components/callguard/sentinel-shared";
+import { RecentThreats } from "@/components/callguard/RecentThreats";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
@@ -66,64 +67,9 @@ function AppDashboard() {
   const start = () => controls.start(mode === "live" ? personaId : undefined);
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
-      {/* Sidebar */}
-      <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-white/5 bg-white/[0.015]">
-        <Link to="/" className="flex items-center gap-2 px-5 h-16 border-b border-white/5">
-          <div className="size-8 rounded-lg bg-gradient-brand grid place-items-center shadow-glow">
-            <Shield className="size-4 text-primary-foreground" />
-          </div>
-          <div>
-            <div className="font-semibold tracking-tight text-sm">CallGuard</div>
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Console</div>
-          </div>
-        </Link>
-        <nav className="p-3 space-y-1 text-sm">
-          {[
-            { icon: LayoutDashboard, label: "Live console", active: true },
-            { icon: PhoneCall, label: "Calls" },
-            { icon: History, label: "Incidents" },
-            { icon: Building2, label: "Teams" },
-            { icon: ShieldCheck, label: "Policies" },
-            { icon: Settings, label: "Settings" },
-          ].map((i) => (
-            <button key={i.label} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition ${i.active ? "bg-white/[0.06] text-foreground" : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"}`}>
-              <i.icon className="size-4" /> {i.label}
-            </button>
-          ))}
-        </nav>
-        <div className="mt-auto p-4">
-          <div className="glass rounded-xl p-3 text-xs">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="size-1.5 rounded-full bg-[var(--success)] animate-pulse" />
-              <span className="font-medium">All systems normal</span>
-            </div>
-            <div className="text-muted-foreground">SOC 2 · GDPR · ISO 27001</div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        {/* Topbar */}
-        <header className="h-16 border-b border-white/5 flex items-center gap-4 px-6">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Live console</span>
-            <ChevronRight className="size-3" />
-            <span className="text-foreground">{s.sessionId ? s.sessionId.slice(0, 14) : "No session"}</span>
-          </div>
-          <div className="ml-auto flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-2 glass rounded-full px-3 py-1.5 text-sm text-muted-foreground w-64">
-              <Search className="size-3.5" />
-              <input placeholder="Search calls, agents, threats..." className="bg-transparent outline-none flex-1 text-sm placeholder:text-muted-foreground" />
-            </div>
-            <button className="size-9 glass rounded-full grid place-items-center"><Bell className="size-4" /></button>
-            <div className="size-9 rounded-full bg-gradient-brand grid place-items-center text-xs font-semibold text-primary-foreground">AL</div>
-          </div>
-        </header>
-
-        {/* Content */}
-        <div className="flex-1 p-6 grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <ConsoleShell title="Live console" subtitle={s.sessionId ? s.sessionId.slice(0, 14) : "No session"}>
+      {/* Content */}
+      <div className="flex-1 p-6 grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Left/main column */}
           <div className="xl:col-span-2 space-y-6">
             {/* Control panel */}
@@ -265,11 +211,21 @@ function AppDashboard() {
           <div className="space-y-6">
             <Timeline timeline={timeline} />
             {alert && <Recommendation />}
-            <RecentIncidents />
+            <Link
+              to="/calls"
+              className="glass-strong rounded-2xl p-4 flex items-center justify-between gap-3 hover:bg-white/5 transition group"
+            >
+              <div className="flex items-center gap-2">
+                <History className="size-4 text-[var(--brand-cyan)]" />
+                <span className="text-sm font-medium">Recent calls</span>
+              </div>
+              <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1 group-hover:gap-1.5 transition-all">
+                View all <ArrowRight className="size-3.5" />
+              </span>
+            </Link>
           </div>
         </div>
-      </div>
-    </div>
+    </ConsoleShell>
   );
 }
 
@@ -307,47 +263,6 @@ function Timeline({ timeline }: { timeline: TimelineEvent[] }) {
           })}
         </ol>
       )}
-    </div>
-  );
-}
-
-function RecentIncidents() {
-  const incidents = [
-    { title: "Executive Impersonation", agent: "Maya R.", score: 94, time: "12 min ago" },
-    { title: "Password Reset Scam", agent: "Jonas K.", score: 91, time: "38 min ago" },
-    { title: "Account Recovery Fraud", agent: "Priya S.", score: 87, time: "1 h ago" },
-    { title: "Vendor Payment Fraud", agent: "Liam T.", score: 89, time: "2 h ago" },
-  ];
-  return (
-    <div className="glass-strong rounded-2xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="size-4 text-[var(--danger)]" />
-          <div className="text-sm font-medium">Recent threats</div>
-        </div>
-        <a className="text-[11px] text-[var(--brand-cyan)] inline-flex items-center gap-1 hover:gap-1.5 transition-all cursor-pointer">
-          View all <ArrowUpRight className="size-3" />
-        </a>
-      </div>
-      <div className="space-y-2">
-        {incidents.map((i) => (
-          <div key={i.title} className="rounded-xl p-3 border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-sm font-medium truncate">{i.title}</div>
-                <div className="text-[11px] text-muted-foreground">{i.agent} · {i.time}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-[var(--danger)] tabular-nums">{i.score}%</div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Risk</div>
-              </div>
-            </div>
-            <div className="mt-2 h-1 bg-white/5 rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-danger" style={{ width: `${i.score}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

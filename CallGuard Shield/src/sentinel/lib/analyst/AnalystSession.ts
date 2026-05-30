@@ -35,7 +35,6 @@ export interface AnalystCallbacks {
   onStatus: (status: AnalystStatus, detail?: string) => void
   onTurn: (turn: TranscriptTurnBody) => void
   onFlag: (flag: AnalystFlag) => void
-  onRisk: (score: number) => void
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
@@ -58,6 +57,8 @@ export class AnalystSession {
   private currentChunkId: string | null = null
   private currentText = ''
   private gapTimer: ReturnType<typeof setTimeout> | null = null
+  /** Coalesces rapid transcription fragments into one interim emit per frame. */
+  private interimRaf: number | null = null
 
   /** Finalized, attributed turns — the ground truth window we feed the diarizer. */
   private readonly committed: { turnId: string; speaker: Speaker; text: string }[] = []
@@ -128,14 +129,31 @@ export class AnalystSession {
       this.currentText = ''
     }
     this.currentText += text
-    this.cb.onTurn({
-      turnId: `${this.currentChunkId}-0`,
-      speaker: this.placeholderSpeaker(),
-      text: this.currentText,
-      final: false,
-    })
+    this.scheduleInterim()
     if (this.gapTimer) clearTimeout(this.gapTimer)
     this.gapTimer = setTimeout(() => this.finalizeChunk(), TURN_GAP_MS)
+  }
+
+  /** Emit the latest interim text at most once per animation frame (~60fps). */
+  private scheduleInterim(): void {
+    if (this.interimRaf !== null) return
+    this.interimRaf = requestAnimationFrame(() => {
+      this.interimRaf = null
+      if (!this.currentChunkId) return
+      this.cb.onTurn({
+        turnId: `${this.currentChunkId}-0`,
+        speaker: this.placeholderSpeaker(),
+        text: this.currentText,
+        final: false,
+      })
+    })
+  }
+
+  private cancelInterim(): void {
+    if (this.interimRaf !== null) {
+      cancelAnimationFrame(this.interimRaf)
+      this.interimRaf = null
+    }
   }
 
   private finalizeChunk(): void {
@@ -143,6 +161,7 @@ export class AnalystSession {
       clearTimeout(this.gapTimer)
       this.gapTimer = null
     }
+    this.cancelInterim()
     const chunkId = this.currentChunkId
     const text = this.currentText.trim()
     this.currentChunkId = null
@@ -209,8 +228,6 @@ export class AnalystSession {
           }
         }
       }
-
-      if (typeof res.risk === 'number') this.cb.onRisk(clamp(res.risk, 0, 100))
     } catch (e) {
       // Diarization failure is non-fatal — keep the chunk as a single turn.
       console.warn('[sentinel] diarize failed:', e instanceof Error ? e.message : e)
@@ -227,6 +244,7 @@ export class AnalystSession {
       clearTimeout(this.gapTimer)
       this.gapTimer = null
     }
+    this.cancelInterim()
     // Flush an in-progress chunk before tearing down.
     const chunkId = this.currentChunkId
     const text = this.currentText.trim()
