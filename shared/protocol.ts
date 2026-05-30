@@ -64,7 +64,7 @@ export type RiskBand = (typeof RiskBand)[keyof typeof RiskBand]
  *  except by opening a fresh session. */
 export const CallStatus = {
   Idle: 'Idle', // no session (initial / post-reset)
-  Connecting: 'Connecting', // Twilio media stream opening
+  Connecting: 'Connecting', // Gemini Live session opening
   Live: 'Live', // audio flowing, transcription active
   Ended: 'Ended', // call hung up normally
   Error: 'Error', // call / stream failed
@@ -86,6 +86,29 @@ export const AlertLevel = {
 export type AlertLevel = (typeof AlertLevel)[keyof typeof AlertLevel]
 
 /* ────────────────────────────────────────────────────────────────────────── *
+ * Shared bodies — reused by the server event map AND the client control union
+ * so both directions of the wire stay in lockstep.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * A transcript turn. UPSERT keyed by `turnId`: zero or more interim updates
+ * (`final: false`, growing `text`) followed by exactly one `final: true`.
+ *
+ * The browser captures these from the live voice session (Gemini Live) and OWNS
+ * `turnId`; the backend echoes the same id back on the `transcript.turn` event
+ * and on any `tactic.flag` that cites it, so transcript and flags cross-reference.
+ */
+export interface TranscriptTurnBody {
+  turnId: string
+  speaker: Speaker
+  text: string
+  final: boolean
+  /** Audio offsets within the call, ms. Optional. */
+  startMs?: number
+  endMs?: number
+}
+
+/* ────────────────────────────────────────────────────────────────────────── *
  * Event catalogue — ONE map describes everything the backend can ever say.
  * Adding a key here (and only here) extends the protocol.
  * ────────────────────────────────────────────────────────────────────────── */
@@ -105,19 +128,8 @@ export interface ServerEventPayloadMap {
     callerLabel?: string
   }
 
-  /**
-   * A transcript turn. UPSERT keyed by `turnId`: zero or more interim updates
-   * (`final: false`, growing `text`) followed by exactly one `final: true`.
-   */
-  'transcript.turn': {
-    turnId: string
-    speaker: Speaker
-    text: string
-    final: boolean
-    /** Audio offsets within the call, ms. Optional. */
-    startMs?: number
-    endMs?: number
-  }
+  /** A transcript turn (see {@link TranscriptTurnBody} for UPSERT + `turnId` rules). */
+  'transcript.turn': TranscriptTurnBody
 
   /** A detected social-engineering tactic, attached to a transcript turn. */
   'tactic.flag': {
@@ -228,9 +240,16 @@ export type ServerEvent = { [T in ServerEventType]: Envelope<T> }[ServerEventTyp
 
 export type ClientControl =
   | { cmd: 'subscribe' }
+  /** Open a session. `scenarioId` selects which attacker persona the AI caller plays. */
   | { cmd: 'start'; scenarioId?: string }
   | { cmd: 'stop' }
   | { cmd: 'reset' }
+  /**
+   * Forward a transcript turn the browser captured from the live voice session
+   * (Gemini Live) to the backend detector. Additive extension: clients that never
+   * send this still satisfy the contract, so it does not bump `PROTOCOL_VERSION`.
+   */
+  | { cmd: 'transcript'; turn: TranscriptTurnBody }
 
 /* ────────────────────────────────────────────────────────────────────────── *
  * Helpers — shared by both sides.

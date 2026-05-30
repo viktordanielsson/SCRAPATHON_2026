@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { createEventSource } from '../lib/transport/createEventSource'
 import type { EventSource } from '../lib/transport/EventSource'
 import { useSessionStore } from '../store/sessionStore'
+import { useTransportMode } from '../store/useTransportMode'
 
 export interface SessionControls {
   /** Reset, then play a scenario (or the real call) from the start. */
@@ -21,9 +22,11 @@ export function useSession(): SessionControls {
   const sourceRef = useRef<EventSource | null>(null)
   const dispatch = useSessionStore((s) => s.dispatch)
   const reset = useSessionStore((s) => s.reset)
+  const mode = useTransportMode((s) => s.mode)
 
   useEffect(() => {
-    const source = createEventSource()
+    reset() // switching mode starts from a clean Standby
+    const source = createEventSource(mode)
     sourceRef.current = source
     const unsubscribe = source.subscribe(dispatch)
     source.connect()
@@ -33,7 +36,7 @@ export function useSession(): SessionControls {
       source.close()
       sourceRef.current = null
     }
-  }, [dispatch])
+  }, [dispatch, mode, reset])
 
   return {
     start: (scenarioId) => {

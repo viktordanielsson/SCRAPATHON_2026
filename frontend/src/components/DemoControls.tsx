@@ -3,28 +3,52 @@ import { Play, RotateCcw, Square } from 'lucide-react'
 import { CallStatus } from '@shared/protocol'
 import { SCENARIOS, DEFAULT_SCENARIO_ID } from '../scenarios'
 import { useSessionStore } from '../store/sessionStore'
+import { useTransportMode, type SourceMode } from '../store/useTransportMode'
 import type { SessionControls } from '../hooks/useSession'
+
+const MODE_LABELS: Record<SourceMode, string> = {
+  mock: 'Mock',
+  live: 'AI Caller',
+  analyze: 'Analysis',
+}
 
 export function DemoControls({ controls }: { controls: SessionControls }) {
   const [scenarioId, setScenarioId] = useState(DEFAULT_SCENARIO_ID)
   const status = useSessionStore((s) => s.status)
   const running = status === CallStatus.Live || status === CallStatus.Connecting
+  const mode = useTransportMode((s) => s.mode)
+  const setMode = useTransportMode((s) => s.setMode)
 
   return (
     <footer className="flex items-center gap-3 border-t border-hairline bg-surface px-6 py-3">
-      <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Demo</span>
+      <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">Mode</span>
 
       <select
-        value={scenarioId}
-        onChange={(e) => setScenarioId(e.target.value)}
+        value={mode}
+        onChange={(e) => setMode(e.target.value as SourceMode)}
         className="rounded-md border border-hairline bg-surface px-2.5 py-1.5 text-[12px] text-ink outline-none focus:border-accent"
       >
-        {SCENARIOS.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.label}
+        {(Object.keys(MODE_LABELS) as SourceMode[]).map((m) => (
+          <option key={m} value={m}>
+            {MODE_LABELS[m]}
           </option>
         ))}
       </select>
+
+      {mode !== 'analyze' && (
+        <select
+          value={scenarioId}
+          onChange={(e) => setScenarioId(e.target.value)}
+          className="rounded-md border border-hairline bg-surface px-2.5 py-1.5 text-[12px] text-ink outline-none focus:border-accent"
+          title={mode === 'live' ? 'Attacker persona' : 'Scenario'}
+        >
+          {SCENARIOS.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+      )}
 
       <button
         onClick={() => controls.start(scenarioId)}
