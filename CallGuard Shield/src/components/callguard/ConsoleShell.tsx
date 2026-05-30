@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import {
-  Shield, LayoutDashboard, History, Building2, ShieldCheck, Settings,
+  Shield, LayoutDashboard, History,
   Bell, Search, ChevronRight, type LucideIcon,
 } from "lucide-react";
 
@@ -10,9 +10,6 @@ type NavItem = { icon: LucideIcon; label: string; to?: string };
 const NAV: NavItem[] = [
   { icon: LayoutDashboard, label: "Live console", to: "/app" },
   { icon: History, label: "Recent calls", to: "/calls" },
-  { icon: Building2, label: "Teams" },
-  { icon: ShieldCheck, label: "Policies" },
-  { icon: Settings, label: "Settings" },
 ];
 
 /**

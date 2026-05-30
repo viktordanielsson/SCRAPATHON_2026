@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import {
   Shield, Mic, MicOff, Square, ShieldAlert, Activity, Clock, ChevronRight,
   Settings, Bell, Search, LayoutDashboard, PhoneCall, History, Building2,
-  ShieldCheck, Bot, Ear, AlertTriangle,
+  ShieldCheck, Bot, Ear, AlertTriangle, ArrowRight,
 } from "lucide-react";
 
 import { CallStatus, TACTIC_LABEL, type Tactic } from "@/sentinel/protocol";
@@ -18,7 +18,7 @@ import {
   CriticalBanner, Recommendation, RiskDonut, TacticGrid, TranscriptView,
   TACTIC_ICON, type TranscriptViewTurn,
 } from "@/components/callguard/sentinel-shared";
-import { RecentThreats } from "@/components/callguard/RecentThreats";
+import { ConsoleShell } from "@/components/callguard/ConsoleShell";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
