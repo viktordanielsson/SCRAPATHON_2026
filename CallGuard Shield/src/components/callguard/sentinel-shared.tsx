@@ -49,7 +49,7 @@ export function riskVisual(score: number): { color: string; label: string } {
   }
 }
 
-/** Circular risk gauge — gradient sweep (band color → violet) with a soft glow. */
+/** Circular risk gauge — the donut shared by the console and the demo. */
 export function RiskDonut({ score, size = 144 }: { score: number; size?: number }) {
   const { color } = riskVisual(score);
   const r = 52;
@@ -58,27 +58,18 @@ export function RiskDonut({ score, size = 144 }: { score: number; size?: number 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg viewBox="0 0 120 120" className="-rotate-90" style={{ width: size, height: size }}>
-        <defs>
-          <linearGradient id="cg-donut" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor={color} />
-            <stop offset="100%" stopColor="var(--brand-violet)" />
-          </linearGradient>
-        </defs>
         <circle cx="60" cy="60" r={r} stroke="oklch(1 0 0 / 0.06)" strokeWidth="10" fill="none" />
         <circle
           cx="60"
           cy="60"
           r={r}
-          stroke="url(#cg-donut)"
+          stroke={color}
           strokeWidth="10"
           fill="none"
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={offset}
-          style={{
-            transition: "stroke-dashoffset 400ms ease",
-            filter: `drop-shadow(0 0 6px color-mix(in oklab, ${color} 55%, transparent))`,
-          }}
+          style={{ transition: "stroke-dashoffset 400ms ease, stroke 400ms" }}
         />
       </svg>
       <div className="absolute inset-0 grid place-items-center">
@@ -102,25 +93,22 @@ export function TacticGrid({ active }: { active: Map<Tactic, TacticActivity> }) 
         const Icon = TACTIC_ICON[t];
         const hit = active.get(t);
         const on = !!hit;
-        const pct = on ? Math.round(hit.maxConfidence * 100) : 0;
         return (
           <div
             key={t}
-            className={`relative overflow-hidden rounded-xl px-3 py-3 border transition ${
+            className={`rounded-xl px-3 py-3 border transition ${
               on
-                ? "border-[var(--danger)]/25 bg-gradient-to-br from-[var(--danger)]/12 to-[var(--brand-violet)]/[0.06] animate-fade-up"
+                ? "bg-[var(--danger)]/10 border-[var(--danger)]/30 animate-fade-up"
                 : "border-white/5 bg-white/[0.02]"
             }`}
           >
             <div className="flex items-center gap-2">
               <span
-                className={`size-7 rounded-lg grid place-items-center transition ${
-                  on
-                    ? "bg-gradient-to-br from-[var(--danger)]/25 to-[var(--brand-violet)]/20 text-[var(--danger)]"
-                    : "bg-white/5 text-muted-foreground"
+                className={`size-7 rounded-lg grid place-items-center ${
+                  on ? "bg-[var(--danger)]/20 text-[var(--danger)]" : "bg-white/5 text-muted-foreground"
                 }`}
               >
-                <Icon className={`size-3.5 ${on ? "icon-grad-danger" : ""}`} />
+                <Icon className="size-3.5" />
               </span>
               <span className={`text-xs font-medium ${on ? "" : "text-muted-foreground"}`}>
                 {TACTIC_LABEL[t]}
@@ -130,16 +118,8 @@ export function TacticGrid({ active }: { active: Map<Tactic, TacticActivity> }) 
               className="text-[10px] uppercase tracking-widest mt-2 tabular-nums"
               style={{ color: on ? "var(--danger)" : undefined }}
             >
-              {on ? `Flagged · ${pct}%` : "Clear"}
+              {on ? `Flagged · ${Math.round(hit.maxConfidence * 100)}%` : "Clear"}
             </div>
-            {on && (
-              <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-[var(--danger)] to-[var(--brand-violet)] transition-[width] duration-500"
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-            )}
           </div>
         );
       })}

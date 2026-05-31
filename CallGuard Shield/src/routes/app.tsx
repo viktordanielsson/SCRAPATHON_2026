@@ -215,7 +215,7 @@ function AppDashboard() {
             )}
 
             {/* Risk score */}
-            <div className="border-gradient rounded-2xl p-5">
+            <div className="glass rounded-2xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-xs uppercase tracking-widest text-muted-foreground">Risk score</div>
                 <span className="text-[10px] uppercase tracking-widest text-muted-foreground tabular-nums">peak {Math.round(stats.peakRisk)}</span>
@@ -226,7 +226,7 @@ function AppDashboard() {
             </div>
 
             {/* Detected tactics */}
-            <div className="border-gradient rounded-2xl p-5">
+            <div className="glass rounded-2xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-xs uppercase tracking-widest text-muted-foreground">Detected tactics</div>
                 <div className="text-[10px] text-muted-foreground tabular-nums">{activeTactics.size} active · {stats.totalFlags} flags</div>
