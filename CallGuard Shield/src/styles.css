@@ -199,6 +199,43 @@
     background-size: 48px 48px;
     mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%);
   }
+
+  /* Icon gradient strokes — resolve against <CgGradientDefs/> rendered at root.
+     `stroke: url(#id)` is valid CSS; objectBoundingBox remaps per icon box. */
+  .icon-grad { stroke: url(#cg-brand); }
+  .icon-grad-danger { stroke: url(#cg-danger); }
+  .icon-grad-iris { stroke: url(#cg-iris); }
+  .icon-glow { filter: drop-shadow(0 0 5px oklch(0.66 0.20 255 / 0.45)); }
+  .icon-glow-danger { filter: drop-shadow(0 0 5px oklch(0.66 0.24 20 / 0.5)); }
+
+  /* Editorial data panel — one class that frames a metric card: a faint aurora
+     wash sits over the opaque card (padding-box), while the brand gradient shows
+     only through the 1px transparent border (border-box). Concentrates the
+     gradient on the data viz it wraps (risk gauge, tactic bars). */
+  .border-gradient {
+    border: 1px solid transparent;
+    background:
+      radial-gradient(72% 90% at 0% 0%, oklch(0.78 0.16 200 / 0.08), transparent 60%) padding-box,
+      radial-gradient(70% 88% at 100% 4%, oklch(0.70 0.20 290 / 0.07), transparent 62%) padding-box,
+      linear-gradient(var(--card), var(--card)) padding-box,
+      linear-gradient(135deg, oklch(0.80 0.16 200 / 0.55), oklch(0.74 0.18 290 / 0.38) 55%, oklch(1 0 0 / 0.05)) border-box;
+  }
+  .text-gradient-iris {
+    /* Violet endpoint lightened (0.66→0.78 L) so trailing glyphs clear AA on dark. */
+    background: linear-gradient(120deg, oklch(0.82 0.15 200), oklch(0.78 0.16 290));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Gradient text must not disappear in forced-colors / high-contrast modes. */
+  @media (forced-colors: active) {
+    .text-gradient-iris,
+    .text-gradient-brand {
+      background: none;
+      color: CanvasText;
+      -webkit-text-fill-color: CanvasText;
+    }
+  }
 }
 
 @keyframes pulse-ring {

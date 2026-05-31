@@ -4,17 +4,8 @@
  * dark theme. These map the protocol's tactic/risk vocabulary onto CallGuard's
  * icons, colors, and a couple of reusable panels.
  */
-import { memo } from "react";
-import {
-  AlertTriangle,
-  Drama,
-  Flame,
-  Gift,
-  HeartHandshake,
-  ShieldAlert,
-  Volume2,
-  type LucideIcon,
-} from "lucide-react";
+import { memo, type ComponentType } from "react";
+import { ShieldAlert, ShieldCheck, Volume2 } from "lucide-react";
 
 import {
   RiskBand,
@@ -25,14 +16,23 @@ import {
 } from "@/sentinel/protocol";
 import type { TacticActivity } from "@/sentinel/store/selectors";
 import type { FlagState, TurnState } from "@/sentinel/store/sessionReducer";
+import {
+  IconFalseAuthority,
+  IconFear,
+  IconPretexting,
+  IconRapportBuilding,
+  IconReciprocity,
+  IconUrgency,
+} from "./icons";
 
-export const TACTIC_ICON: Record<Tactic, LucideIcon> = {
-  Urgency: AlertTriangle,
-  FalseAuthority: ShieldAlert,
-  Pretexting: Drama,
-  Fear: Flame,
-  Reciprocity: Gift,
-  RapportBuilding: HeartHandshake,
+/** Bespoke per-tactic glyphs — currentColor so neutral/flagged coloring works. */
+export const TACTIC_ICON: Record<Tactic, ComponentType<{ className?: string }>> = {
+  Urgency: IconUrgency,
+  FalseAuthority: IconFalseAuthority,
+  Pretexting: IconPretexting,
+  Fear: IconFear,
+  Reciprocity: IconReciprocity,
+  RapportBuilding: IconRapportBuilding,
 };
 
 /** Map a 0–100 risk score onto a CallGuard color var + a short label. */
@@ -49,7 +49,7 @@ export function riskVisual(score: number): { color: string; label: string } {
   }
 }
 
-/** Circular risk gauge — the donut shared by the console and the demo. */
+/** Circular risk gauge — gradient sweep (band color → violet) with a soft glow. */
 export function RiskDonut({ score, size = 144 }: { score: number; size?: number }) {
   const { color } = riskVisual(score);
   const r = 52;
@@ -58,18 +58,27 @@ export function RiskDonut({ score, size = 144 }: { score: number; size?: number 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg viewBox="0 0 120 120" className="-rotate-90" style={{ width: size, height: size }}>
+        <defs>
+          <linearGradient id="cg-donut" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={color} />
+            <stop offset="100%" stopColor="var(--brand-violet)" />
+          </linearGradient>
+        </defs>
         <circle cx="60" cy="60" r={r} stroke="oklch(1 0 0 / 0.06)" strokeWidth="10" fill="none" />
         <circle
           cx="60"
           cy="60"
           r={r}
-          stroke={color}
+          stroke="url(#cg-donut)"
           strokeWidth="10"
           fill="none"
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 400ms ease, stroke 400ms" }}
+          style={{
+            transition: "stroke-dashoffset 400ms ease",
+            filter: `drop-shadow(0 0 6px color-mix(in oklab, ${color} 55%, transparent))`,
+          }}
         />
       </svg>
       <div className="absolute inset-0 grid place-items-center">
@@ -93,22 +102,25 @@ export function TacticGrid({ active }: { active: Map<Tactic, TacticActivity> }) 
         const Icon = TACTIC_ICON[t];
         const hit = active.get(t);
         const on = !!hit;
+        const pct = on ? Math.round(hit.maxConfidence * 100) : 0;
         return (
           <div
             key={t}
-            className={`rounded-xl px-3 py-3 border transition ${
+            className={`relative overflow-hidden rounded-xl px-3 py-3 border transition ${
               on
-                ? "bg-[var(--danger)]/10 border-[var(--danger)]/30 animate-fade-up"
+                ? "border-[var(--danger)]/25 bg-gradient-to-br from-[var(--danger)]/12 to-[var(--brand-violet)]/[0.06] animate-fade-up"
                 : "border-white/5 bg-white/[0.02]"
             }`}
           >
             <div className="flex items-center gap-2">
               <span
-                className={`size-7 rounded-lg grid place-items-center ${
-                  on ? "bg-[var(--danger)]/20 text-[var(--danger)]" : "bg-white/5 text-muted-foreground"
+                className={`size-7 rounded-lg grid place-items-center transition ${
+                  on
+                    ? "bg-gradient-to-br from-[var(--danger)]/25 to-[var(--brand-violet)]/20 text-[var(--danger)]"
+                    : "bg-white/5 text-muted-foreground"
                 }`}
               >
-                <Icon className="size-3.5" />
+                <Icon className={`size-3.5 ${on ? "icon-grad-danger" : ""}`} />
               </span>
               <span className={`text-xs font-medium ${on ? "" : "text-muted-foreground"}`}>
                 {TACTIC_LABEL[t]}
@@ -118,8 +130,16 @@ export function TacticGrid({ active }: { active: Map<Tactic, TacticActivity> }) 
               className="text-[10px] uppercase tracking-widest mt-2 tabular-nums"
               style={{ color: on ? "var(--danger)" : undefined }}
             >
-              {on ? `Flagged · ${Math.round(hit.maxConfidence * 100)}%` : "Clear"}
+              {on ? `Flagged · ${pct}%` : "Clear"}
             </div>
+            {on && (
+              <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[var(--danger)] to-[var(--brand-violet)] transition-[width] duration-500"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            )}
           </div>
         );
       })}
@@ -234,6 +254,98 @@ export function CriticalBanner({ message, onDismiss }: { message: string; onDism
             </button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Ultra-short per-tactic directive — a few words an agent can read mid-call. */
+const ADVICE_SHORT: Record<Tactic, string> = {
+  Urgency: "Slow down",
+  FalseAuthority: "Verify their authority",
+  Pretexting: "Confirm their identity",
+  Fear: "Don't be pressured",
+  Reciprocity: "You owe them nothing",
+  RapportBuilding: "Stay skeptical",
+};
+
+/**
+ * Live advice strip — sits between the call control and the transcript. Shows ONE
+ * glanceable directive (a few words) the agent can read without breaking the
+ * conversation: the specific "don't do X" once a request is in play, a counter to
+ * the top active tactic, or a calm all-clear. Color tracks the live risk band.
+ */
+export function LiveAdvice({
+  running,
+  risk,
+  drivers,
+  ask,
+  hasAlert,
+}: {
+  running: boolean;
+  risk: number;
+  drivers: Tactic[];
+  ask?: { action: string; target: string } | null;
+  hasAlert: boolean;
+}) {
+  const top = drivers[0];
+  const hasAsk = !!ask && ask.action.trim().length > 0;
+
+  let headline: string;
+  let sub: string;
+  let Icon: ComponentType<{ className?: string }> = ShieldCheck;
+  let color = "var(--success)";
+  let active = false;
+
+  if (hasAlert && hasAsk) {
+    headline = `Don't ${ask!.action}`;
+    sub = "Call back on the number already on file before acting";
+    Icon = ShieldAlert;
+    color = "var(--danger)";
+    active = true;
+  } else if (top) {
+    headline = ADVICE_SHORT[top];
+    sub = `${TACTIC_LABEL[top]} detected — hold the line`;
+    Icon = TACTIC_ICON[top];
+    color = riskVisual(risk).color;
+    active = true;
+  } else if (running) {
+    headline = "All clear";
+    sub = "Keep listening — nothing flagged yet";
+    color = "var(--success)";
+  } else {
+    headline = "Standing by";
+    sub = "Start a call to begin live guidance";
+    color = "var(--muted-foreground)";
+  }
+
+  return (
+    <div
+      className="glass rounded-2xl px-5 py-4 flex items-center gap-4 transition"
+      style={active ? { borderColor: color } : undefined}
+    >
+      <span
+        className="size-12 shrink-0 rounded-xl grid place-items-center"
+        style={{ background: `color-mix(in oklab, ${color} 16%, transparent)`, color }}
+      >
+        <Icon className="size-6" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Advice</span>
+          {active && (
+            <span className="text-[10px] uppercase tracking-widest" style={{ color }}>
+              {riskVisual(risk).label}
+            </span>
+          )}
+        </div>
+        <div
+          className="text-xl md:text-2xl font-semibold tracking-tight leading-tight truncate"
+          style={{ color }}
+        >
+          {headline}
+        </div>
+        <div className="text-xs text-muted-foreground truncate">{sub}</div>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import {
   Shield, LayoutDashboard, History,
   Bell, Search, ChevronRight, type LucideIcon,
 } from "lucide-react";
+import { AuroraField, CgGradientDefs } from "./icons";
 
 type NavItem = { icon: LucideIcon; label: string; to?: string };
 
@@ -29,15 +30,17 @@ export function ConsoleShell({
   const pathname = useLocation({ select: (l) => l.pathname });
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
+    <div className="relative min-h-screen overflow-hidden bg-background text-foreground flex">
+      <CgGradientDefs />
+      <AuroraField />
       {/* Sidebar */}
-      <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-white/5 bg-white/[0.015]">
+      <aside className="relative z-10 hidden lg:flex w-60 shrink-0 flex-col border-r border-white/5 bg-white/[0.015]">
         <Link to="/" className="flex items-center gap-2 px-5 h-16 border-b border-white/5">
           <div className="size-8 rounded-lg bg-gradient-brand grid place-items-center shadow-glow">
             <Shield className="size-4 text-primary-foreground" />
           </div>
           <div>
-            <div className="font-semibold tracking-tight text-sm">CallGuard</div>
+            <div className="font-semibold tracking-tight text-sm text-gradient-iris">CallGuard</div>
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Console</div>
           </div>
         </Link>
@@ -49,13 +52,14 @@ export function ConsoleShell({
                 ? "bg-white/[0.06] text-foreground"
                 : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
             }`;
+            const iconCls = `size-4 ${active ? "icon-grad icon-glow" : ""}`;
             return i.to ? (
               <Link key={i.label} to={i.to} className={className}>
-                <i.icon className="size-4" /> {i.label}
+                <i.icon className={iconCls} /> {i.label}
               </Link>
             ) : (
               <button key={i.label} className={`${className} cursor-default`} title="Coming soon">
-                <i.icon className="size-4" /> {i.label}
+                <i.icon className={iconCls} /> {i.label}
               </button>
             );
           })}
@@ -72,7 +76,7 @@ export function ConsoleShell({
       </aside>
 
       {/* Main */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="relative z-10 flex-1 min-w-0 flex flex-col">
         <header className="h-16 border-b border-white/5 flex items-center gap-4 px-6">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>{title}</span>
@@ -88,10 +92,10 @@ export function ConsoleShell({
               <Search className="size-3.5" />
               <input
                 placeholder="Search calls, agents, threats..."
-                className="bg-transparent outline-none flex-1 text-sm placeholder:text-muted-foreground"
+                className="bg-transparent outline-none flex-1 text-sm placeholder:text-[oklch(0.72_0.02_255)]"
               />
             </div>
-            <button className="size-9 glass rounded-full grid place-items-center">
+            <button className="size-9 glass rounded-full grid place-items-center text-muted-foreground hover:text-foreground transition">
               <Bell className="size-4" />
             </button>
             <div className="size-9 rounded-full bg-gradient-brand grid place-items-center text-xs font-semibold text-primary-foreground">

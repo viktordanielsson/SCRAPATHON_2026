@@ -15,7 +15,7 @@ import { selActiveAlert, selActiveTactics, selDrivers, selStats } from "@/sentin
 import { SCENARIOS } from "@/sentinel/scenarios";
 import { formatClock } from "@/sentinel/lib/format";
 import {
-  CriticalBanner, Recommendation, RiskDonut, TacticGrid, TranscriptView,
+  CriticalBanner, LiveAdvice, Recommendation, RiskDonut, TacticGrid, TranscriptView,
   TACTIC_ICON, type TranscriptViewTurn,
 } from "@/components/callguard/sentinel-shared";
 import { ConsoleShell } from "@/components/callguard/ConsoleShell";
@@ -76,10 +76,10 @@ function AppDashboard() {
       {/* Content */}
       <div className="flex-1 p-6 grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Left/main column */}
-          <div className="xl:col-span-2 space-y-6">
+          <div className="xl:col-span-2 space-y-4">
             {/* Control panel */}
             <div className="glass-strong rounded-3xl p-6 relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-hero opacity-50 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-hero opacity-30 pointer-events-none" />
               <div className="relative flex flex-wrap items-center gap-6">
                 <button
                   onClick={running ? controls.stop : start}
@@ -98,7 +98,7 @@ function AppDashboard() {
                           ? "Error"
                           : "Idle"}
                   </div>
-                  <div className="text-2xl md:text-3xl font-semibold tracking-tight">
+                  <div className={`text-2xl md:text-3xl font-semibold tracking-tight ${running ? "" : "text-gradient-iris"}`}>
                     {running ? "Listening…" : "Start Call Analysis"}
                   </div>
                   <div className="text-sm text-muted-foreground mt-1 max-w-md">
@@ -155,11 +155,20 @@ function AppDashboard() {
               </div>
             </div>
 
+            {/* Live advice — one glanceable directive between control and transcript */}
+            <LiveAdvice
+              running={running}
+              risk={s.risk}
+              drivers={drivers}
+              ask={s.ask}
+              hasAlert={!!alert}
+            />
+
             {/* Transcript */}
-            <div className="glass-strong rounded-2xl flex flex-col min-h-[360px]">
+            <div className="glass-strong rounded-2xl flex flex-col min-h-[260px]">
               <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/5">
                 <div className="flex items-center gap-2">
-                  <Activity className="size-4 text-[var(--brand-cyan)]" />
+                  <Activity className="size-4 icon-grad icon-glow" />
                   <div className="text-sm font-medium">Live transcript</div>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -171,8 +180,8 @@ function AppDashboard() {
                 {turns.length === 0 ? (
                   <div className="flex-1 grid place-items-center text-center py-10">
                     <div>
-                      <div className="size-12 rounded-full bg-gradient-brand mx-auto grid place-items-center shadow-glow mb-3">
-                        <Mic className="size-5 text-primary-foreground" />
+                      <div className="size-12 rounded-full bg-white/5 border border-white/10 mx-auto grid place-items-center mb-3">
+                        <Mic className="size-5 icon-grad" />
                       </div>
                       <div className="font-semibold">No transcript yet</div>
                       <div className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
@@ -197,7 +206,7 @@ function AppDashboard() {
             {/* The Ask — what the caller is trying to get done (neutral until it escalates) */}
             {hasAsk && (
               <div className="glass rounded-2xl p-4 flex items-start gap-2.5">
-                <Crosshair className="mt-0.5 size-4 shrink-0 text-[var(--brand-cyan)]" />
+                <Crosshair className="mt-0.5 size-4 shrink-0 icon-grad" />
                 <div className="min-w-0">
                   <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Caller wants</div>
                   <div className="text-sm font-semibold">{askLine}</div>
@@ -206,7 +215,7 @@ function AppDashboard() {
             )}
 
             {/* Risk score */}
-            <div className="glass rounded-2xl p-5">
+            <div className="border-gradient rounded-2xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-xs uppercase tracking-widest text-muted-foreground">Risk score</div>
                 <span className="text-[10px] uppercase tracking-widest text-muted-foreground tabular-nums">peak {Math.round(stats.peakRisk)}</span>
@@ -217,7 +226,7 @@ function AppDashboard() {
             </div>
 
             {/* Detected tactics */}
-            <div className="glass rounded-2xl p-5">
+            <div className="border-gradient rounded-2xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-xs uppercase tracking-widest text-muted-foreground">Detected tactics</div>
                 <div className="text-[10px] text-muted-foreground tabular-nums">{activeTactics.size} active · {stats.totalFlags} flags</div>
@@ -225,7 +234,8 @@ function AppDashboard() {
               <TacticGrid active={activeTactics} />
             </div>
 
-            <Timeline timeline={timeline} />
+            {/* Detection timeline removed from dashboard — Timeline component + its
+                `timeline` memo are kept below for later reuse. */}
             {alert && <Recommendation ask={s.ask} drivers={drivers} />}
           </div>
         </div>
@@ -242,7 +252,7 @@ function Timeline({ timeline }: { timeline: TimelineEvent[] }) {
     <div className="glass-strong rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Clock className="size-4 text-[var(--brand-cyan)]" />
+          <Clock className="size-4 icon-grad icon-glow" />
           <div className="text-sm font-medium">Detection timeline</div>
         </div>
         <div className="text-[10px] text-muted-foreground tabular-nums">{timeline.length} events</div>
