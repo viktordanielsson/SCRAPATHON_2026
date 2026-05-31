@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { ShieldAlert, X, Download, Trash2, Clock, Inbox } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Clock, Crosshair, Download, Inbox, Pause, Play, ShieldAlert, Trash2, X } from "lucide-react";
 
-import { TACTIC_LABEL } from "@/sentinel/protocol";
+import { AlertLevel, TACTIC_LABEL } from "@/sentinel/protocol";
 import {
   reconstruct,
   sessionTitle,
   useHistoryStore,
   type SavedSession,
 } from "@/sentinel/store/historyStore";
+import { freshState, reduce } from "@/sentinel/store/sessionReducer";
 import { selActiveTactics } from "@/sentinel/store/selectors";
 import { formatClock } from "@/sentinel/lib/format";
-import { TACTIC_ICON, TranscriptView, type TranscriptViewTurn } from "./sentinel-shared";
+import { TACTIC_ICON, TranscriptView, riskVisual, type TranscriptViewTurn } from "./sentinel-shared";
+
+/** Playback step between events when replaying a recorded call. */
+const STEP_MS = 360;
 
 const VERDICT_COLOR: Record<string, string> = {
   "Compromise attempt": "var(--danger)",
@@ -149,9 +154,74 @@ function exportSession(s: SavedSession): void {
   URL.revokeObjectURL(url);
 }
 
+/** Full risk curve as a stretch-to-width SVG line; the playhead marker overlays it. */
+function RiskSparkline({ data, color, height = 56 }: { data: number[]; color: string; height?: number }) {
+  if (data.length < 2) return null;
+  const pts = data
+    .map((d, i) => {
+      const x = (i / (data.length - 1)) * 100;
+      const y = height - (Math.max(0, Math.min(100, d)) / 100) * (height - 2) - 1;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+  return (
+    <svg width="100%" height={height} viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" className="block">
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+        opacity={0.9}
+      />
+    </svg>
+  );
+}
+
+/**
+ * Replay view for a saved call — the timeline, replayable. Folds the recorded
+ * event stream up to a playhead through the live reducer, so you can play/scrub
+ * and watch the risk climb and the conversation reveal turn by turn.
+ */
 function CallDetail({ session, onClose }: { session: SavedSession; onClose: () => void }) {
-  const state = useMemo(() => reconstruct(session.events), [session]);
-  const tactics = useMemo(() => selActiveTactics(state), [state]);
+  const events = session.events;
+  const lastIndex = Math.max(0, events.length - 1);
+  const [n, setN] = useState(lastIndex);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    if (!playing) return;
+    if (n >= lastIndex) {
+      setPlaying(false);
+      return;
+    }
+    const t = setTimeout(() => setN((x) => Math.min(lastIndex, x + 1)), STEP_MS);
+    return () => clearTimeout(t);
+  }, [playing, n, lastIndex]);
+
+  // State AT the playhead (re-folded) and the FULL call (curve + drivers).
+  const state = useMemo(
+    () => events.slice(0, n + 1).reduce((st, e) => reduce(st, e), freshState()),
+    [events, n],
+  );
+  const full = useMemo(() => reconstruct(events), [events]);
+  const fullScores = full.riskHistory.map((h) => h.score);
+  const drivers = useMemo(
+    () => [...selActiveTactics(full).entries()].sort((a, b) => b[1].count - a[1].count),
+    [full],
+  );
+
+  const vis = riskVisual(state.risk);
+  const vc = verdictColor(session.summary.verdict);
+  const elapsed = events.length ? events[Math.min(n, lastIndex)].ts - events[0].ts : 0;
+  const alertFired = state.alerts.some((a) => !a.dismissed && a.level === AlertLevel.Critical);
+  const atEnd = n >= lastIndex;
+  const markerFrac = lastIndex > 0 ? Math.min(1, Math.max(0, n / lastIndex)) : 0;
+  const hasAsk = !!state.ask && state.ask.action.trim().length > 0;
+  const askLine = hasAsk ? `${state.ask!.action}${state.ask!.target ? ` — ${state.ask!.target}` : ""}` : "";
+
   const turns: TranscriptViewTurn[] = useMemo(
     () =>
       state.turnIds.map((id) => ({
@@ -161,17 +231,25 @@ function CallDetail({ session, onClose }: { session: SavedSession; onClose: () =
       })),
     [state],
   );
-  const vc = verdictColor(session.summary.verdict);
-  const drivers = [...tactics.entries()].sort((a, b) => b[1].count - a[1].count);
 
-  return (
+  const togglePlay = () => {
+    if (atEnd) {
+      setN(0);
+      setPlaying(true);
+    } else {
+      setPlaying((p) => !p);
+    }
+  };
+
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-6 animate-fade-up"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6 animate-fade-up"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl glass-strong shadow-card-premium"
+        className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-card shadow-card-premium"
       >
         {/* Header */}
         <div className="flex items-start justify-between border-b border-white/5 px-6 py-4">
@@ -209,22 +287,93 @@ function CallDetail({ session, onClose }: { session: SavedSession; onClose: () =
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          {/* Stats */}
-          <div className="grid grid-cols-4 gap-3">
-            <Stat label="peak risk" value={Math.round(session.summary.peakRisk)} color={vc} />
-            <Stat label="final" value={Math.round(session.summary.finalRisk)} />
-            <Stat label="flags" value={session.summary.totalFlags} />
-            <Stat label="caller turns" value={session.summary.callerTurns} />
+          {/* Replay readout — risk at the playhead */}
+          <div className="flex items-center gap-3">
+            <span className="text-4xl font-semibold tabular-nums" style={{ color: vis.color }}>
+              {Math.round(state.risk)}
+            </span>
+            <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: vis.color }}>
+              {vis.label}
+            </span>
+            {alertFired && (
+              <span
+                className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--danger)]"
+                style={{ background: "color-mix(in oklab, var(--danger) 18%, transparent)" }}
+              >
+                Alert fired
+              </span>
+            )}
+            <span className="ml-auto font-mono text-[11px] text-muted-foreground tabular-nums">
+              {formatClock(elapsed)}
+            </span>
           </div>
 
-          {/* What drove it */}
-          <div className="mt-5">
-            <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-              What drove it
+          {/* Threat timeline with a moving playhead */}
+          {fullScores.length >= 2 && (
+            <div className="relative mt-3" style={{ height: 56 }}>
+              <RiskSparkline data={fullScores} color={vis.color} height={56} />
+              <div
+                className="absolute top-0 h-full w-px bg-white/50"
+                style={{ left: `${markerFrac * 100}%` }}
+              />
             </div>
-            {drivers.length === 0 ? (
-              <p className="text-[12px] text-muted-foreground">No manipulation tactics detected. Call cleared.</p>
-            ) : (
+          )}
+
+          {/* Transport: play/pause + scrubber */}
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={togglePlay}
+              title={playing ? "Pause" : atEnd ? "Replay" : "Play"}
+              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-brand text-primary-foreground hover:opacity-90 transition"
+            >
+              {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={lastIndex}
+              value={n}
+              onChange={(e) => {
+                setPlaying(false);
+                setN(Number(e.target.value));
+              }}
+              className="h-1 flex-1 cursor-pointer"
+              style={{ accentColor: "var(--brand-cyan)" }}
+              aria-label="Scrub call"
+            />
+            <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+              {n + 1}/{events.length}
+            </span>
+          </div>
+
+          {hasAsk && (
+            <div className="mt-4 flex items-start gap-2 rounded-md border border-white/5 bg-white/[0.03] px-3 py-2">
+              <Crosshair className="mt-0.5 size-3.5 shrink-0 text-[var(--brand-cyan)]" />
+              <div>
+                <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  Caller wanted
+                </div>
+                <div className="text-[13px] font-semibold">{askLine}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Conversation up to the playhead */}
+          <div className="mb-2 mt-5 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+            <Clock className="size-3.5" /> Conversation
+          </div>
+          {turns.length === 0 ? (
+            <p className="text-[12px] text-muted-foreground">Press play to replay from the start.</p>
+          ) : (
+            <TranscriptView turns={turns} running={false} />
+          )}
+
+          {/* What drove it — whole-call summary */}
+          {drivers.length > 0 && (
+            <>
+              <div className="mb-2 mt-5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                What drove it
+              </div>
               <ul className="space-y-1.5">
                 {drivers.map(([tactic, activity]) => {
                   const Icon = TACTIC_ICON[tactic];
@@ -239,29 +388,11 @@ function CallDetail({ session, onClose }: { session: SavedSession; onClose: () =
                   );
                 })}
               </ul>
-            )}
-          </div>
-
-          {/* Transcript */}
-          <div className="mb-2 mt-5 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            <Clock className="size-3.5" /> Conversation
-          </div>
-          <div className="flex flex-col">
-            <TranscriptView turns={turns} running={false} />
-          </div>
+            </>
+          )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function Stat({ label, value, color }: { label: string; value: string | number; color?: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-2xl font-semibold tabular-nums" style={color ? { color } : undefined}>
-        {value}
-      </span>
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
-    </div>
+    </div>,
+    document.body,
   );
 }

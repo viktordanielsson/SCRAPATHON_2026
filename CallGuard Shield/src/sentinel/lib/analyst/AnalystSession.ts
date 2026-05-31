@@ -31,10 +31,17 @@ export interface AnalystFlag {
   turnId: string
 }
 
+export interface AnalystAsk {
+  action: string
+  target: string
+  turnId: string
+}
+
 export interface AnalystCallbacks {
   onStatus: (status: AnalystStatus, detail?: string) => void
   onTurn: (turn: TranscriptTurnBody) => void
   onFlag: (flag: AnalystFlag) => void
+  onAsk: (ask: AnalystAsk) => void
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
@@ -185,6 +192,7 @@ export class AnalystSession {
   }
 
   private async diarizeOne(chunkId: string, text: string): Promise<void> {
+    if (this.stopped) return // teardown already happened — don't emit into an ended session
     try {
       const res = (await diarizeTurnFn({
         data: {
@@ -196,6 +204,9 @@ export class AnalystSession {
           text,
         },
       })) as DiarizeResult
+
+      // The diarize round-trip can outlive a stop(); never emit after the call ended.
+      if (this.stopped) return
 
       const segments = res.segments?.length ? res.segments : [{ speaker: 'Caller', text, tactics: [] }]
 
@@ -228,7 +239,13 @@ export class AnalystSession {
           }
         }
       }
+
+      // "The Ask" — surface only once the caller has asked for something concrete;
+      // a later empty line never wipes a known ask (handled client-side by gating).
+      const action = res.ask?.action?.trim()
+      if (action) this.cb.onAsk({ action, target: res.ask?.target?.trim() ?? '', turnId: `${chunkId}-0` })
     } catch (e) {
+      if (this.stopped) return
       // Diarization failure is non-fatal — keep the chunk as a single turn.
       console.warn('[sentinel] diarize failed:', e instanceof Error ? e.message : e)
       const turnId = `${chunkId}-0`

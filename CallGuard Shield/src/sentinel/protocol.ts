@@ -150,6 +150,20 @@ export interface ServerEventPayloadMap {
     contributors?: { tactic: Tactic; weight: number }[]
   }
 
+  /**
+   * "The Ask" — the single concrete sensitive action the caller is trying to get
+   * the agent to perform, refined as the call sharpens. Drives the operator
+   * directive. An empty `action` is never emitted.
+   */
+  'ask.update': {
+    /** Short verb phrase, e.g. "reset MFA", "disclose the verification code". */
+    action: string
+    /** What it acts on, e.g. "account ending 4827". May be empty. */
+    target: string
+    /** The transcript turn that revealed or sharpened the ask. */
+    sourceTurnId?: string
+  }
+
   /** Voice-authenticity / deepfake score. 0–100 (lower = more synthetic). Experimental. */
   'voice.score': {
     score: number
@@ -197,6 +211,7 @@ export const SERVER_EVENT_TYPES = [
   'transcript.turn',
   'tactic.flag',
   'risk.update',
+  'ask.update',
   'voice.score',
   'alert',
   'session.summary',

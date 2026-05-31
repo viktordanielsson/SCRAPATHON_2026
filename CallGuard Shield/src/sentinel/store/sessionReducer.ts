@@ -36,6 +36,12 @@ export interface AlertState {
   dismissed: boolean
 }
 
+export interface AskState {
+  action: string
+  target: string
+  sourceTurnId?: string
+}
+
 export type SummaryState = ServerEventPayloadMap['session.summary']
 
 export interface SessionState {
@@ -56,6 +62,7 @@ export interface SessionState {
   voiceScore: number | null
   voiceEnabled: boolean
   alerts: AlertState[]
+  ask: AskState | null
   summary: SummaryState | null
   startedAt: number | null
   endedAt: number | null
@@ -78,6 +85,7 @@ export function freshState(): SessionState {
     voiceScore: null,
     voiceEnabled: false,
     alerts: [],
+    ask: null,
     summary: null,
     startedAt: null,
     endedAt: null,
@@ -150,6 +158,14 @@ export function reduce(state: SessionState, evt: ServerEvent): SessionState {
         s.peakRisk = Math.max(s.peakRisk, r.score)
         s.riskHistory.push({ seq: evt.seq, score: r.score })
         if (s.riskHistory.length > RISK_HISTORY_CAP) s.riskHistory.shift()
+        break
+      }
+      case 'ask.update': {
+        s.ask = {
+          action: evt.payload.action,
+          target: evt.payload.target,
+          sourceTurnId: evt.payload.sourceTurnId,
+        }
         break
       }
       case 'voice.score': {

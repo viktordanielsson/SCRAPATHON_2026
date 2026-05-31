@@ -114,6 +114,12 @@ export class AnalyzeEventSource implements EventSource {
         }
       },
       onTurn: (turn) => this.emit('transcript.turn', turn),
+      onAsk: (ask) =>
+        this.emit('ask.update', {
+          action: ask.action,
+          target: ask.target,
+          sourceTurnId: ask.turnId,
+        }),
       onFlag: (flag) => {
         this.emit('tactic.flag', {
           flagId: `flag-${this.flagCounter++}`,

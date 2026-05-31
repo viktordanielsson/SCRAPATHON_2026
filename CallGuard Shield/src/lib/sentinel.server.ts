@@ -113,6 +113,8 @@ export interface DiarizeResult {
   segments?: DiarizeSegment[];
   /** Corrections to earlier turns' speaker labels, keyed by the turn id. */
   revisions?: { id?: string; speaker?: "Caller" | "Agent" }[];
+  /** "The Ask" — what the caller is trying to get done. Empty strings if none yet. */
+  ask?: { action?: string; target?: string };
 }
 
 /**

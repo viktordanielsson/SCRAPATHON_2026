@@ -1,9 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   Shield, Mic, MicOff, Square, ShieldAlert, Activity, Clock, ChevronRight,
-  Settings, Bell, Search, LayoutDashboard, PhoneCall, History, Building2,
-  ShieldCheck, Bot, Ear, AlertTriangle, ArrowRight,
+  Settings, Bell, Search, LayoutDashboard, PhoneCall, Building2,
+  Bot, Ear, AlertTriangle, Crosshair,
 } from "lucide-react";
 
 import { CallStatus, TACTIC_LABEL, type Tactic } from "@/sentinel/protocol";
@@ -11,7 +11,7 @@ import { useSession } from "@/sentinel/hooks/useSession";
 import { useElapsed } from "@/sentinel/hooks/useElapsed";
 import { useAutoScroll } from "@/sentinel/hooks/useAutoScroll";
 import { useSessionStore } from "@/sentinel/store/sessionStore";
-import { selActiveAlert, selActiveTactics, selStats } from "@/sentinel/store/selectors";
+import { selActiveAlert, selActiveTactics, selDrivers, selStats } from "@/sentinel/store/selectors";
 import { SCENARIOS } from "@/sentinel/scenarios";
 import { formatClock } from "@/sentinel/lib/format";
 import {
@@ -19,6 +19,7 @@ import {
   TACTIC_ICON, type TranscriptViewTurn,
 } from "@/components/callguard/sentinel-shared";
 import { ConsoleShell } from "@/components/callguard/ConsoleShell";
+import { IncidentReport } from "@/components/callguard/IncidentReport";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
@@ -43,7 +44,11 @@ function AppDashboard() {
   const stats = selStats(s);
   const activeTactics = selActiveTactics(s);
   const alert = selActiveAlert(s);
+  const drivers = selDrivers(s);
   const scrollRef = useAutoScroll<HTMLDivElement>(s.turnIds.length + s.flagIds.length);
+
+  const hasAsk = !!s.ask && s.ask.action.trim().length > 0;
+  const askLine = hasAsk ? `${s.ask!.action}${s.ask!.target ? ` — ${s.ask!.target}` : ""}` : "";
 
   const turns: TranscriptViewTurn[] = useMemo(
     () =>
@@ -150,26 +155,6 @@ function AppDashboard() {
               </div>
             </div>
 
-            {/* Risk + tactics grid */}
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="glass rounded-2xl p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Risk score</div>
-                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground tabular-nums">peak {Math.round(stats.peakRisk)}</span>
-                </div>
-                <div className="flex items-center justify-center">
-                  <RiskDonut score={s.risk} />
-                </div>
-              </div>
-              <div className="md:col-span-2 glass rounded-2xl p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Detected tactics</div>
-                  <div className="text-[10px] text-muted-foreground tabular-nums">{activeTactics.size} active · {stats.totalFlags} flags</div>
-                </div>
-                <TacticGrid active={activeTactics} />
-              </div>
-            </div>
-
             {/* Transcript */}
             <div className="glass-strong rounded-2xl flex flex-col min-h-[360px]">
               <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/5">
@@ -207,24 +192,45 @@ function AppDashboard() {
             </div>
           </div>
 
-          {/* Right column */}
+          {/* Right column — analysis & operator guidance */}
           <div className="space-y-6">
-            <Timeline timeline={timeline} />
-            {alert && <Recommendation />}
-            <Link
-              to="/calls"
-              className="glass-strong rounded-2xl p-4 flex items-center justify-between gap-3 hover:bg-white/5 transition group"
-            >
-              <div className="flex items-center gap-2">
-                <History className="size-4 text-[var(--brand-cyan)]" />
-                <span className="text-sm font-medium">Recent calls</span>
+            {/* The Ask — what the caller is trying to get done (neutral until it escalates) */}
+            {hasAsk && (
+              <div className="glass rounded-2xl p-4 flex items-start gap-2.5">
+                <Crosshair className="mt-0.5 size-4 shrink-0 text-[var(--brand-cyan)]" />
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Caller wants</div>
+                  <div className="text-sm font-semibold">{askLine}</div>
+                </div>
               </div>
-              <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1 group-hover:gap-1.5 transition-all">
-                View all <ArrowRight className="size-3.5" />
-              </span>
-            </Link>
+            )}
+
+            {/* Risk score */}
+            <div className="glass rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs uppercase tracking-widest text-muted-foreground">Risk score</div>
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground tabular-nums">peak {Math.round(stats.peakRisk)}</span>
+              </div>
+              <div className="flex items-center justify-center">
+                <RiskDonut score={s.risk} />
+              </div>
+            </div>
+
+            {/* Detected tactics */}
+            <div className="glass rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs uppercase tracking-widest text-muted-foreground">Detected tactics</div>
+                <div className="text-[10px] text-muted-foreground tabular-nums">{activeTactics.size} active · {stats.totalFlags} flags</div>
+              </div>
+              <TacticGrid active={activeTactics} />
+            </div>
+
+            <Timeline timeline={timeline} />
+            {alert && <Recommendation ask={s.ask} drivers={drivers} />}
           </div>
         </div>
+
+        <IncidentReport />
     </ConsoleShell>
   );
 }

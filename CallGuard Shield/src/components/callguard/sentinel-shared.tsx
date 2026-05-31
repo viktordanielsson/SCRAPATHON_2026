@@ -12,7 +12,7 @@ import {
   Gift,
   HeartHandshake,
   ShieldAlert,
-  ShieldCheck,
+  Volume2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -239,23 +239,80 @@ export function CriticalBanner({ message, onDismiss }: { message: string; onDism
   );
 }
 
-/** Recommended-actions card, shown once a critical alert fires. */
-export function Recommendation() {
-  const items = [
-    "Do not share credentials or one-time codes over this call.",
-    "Escalate to your supervisor immediately.",
-    "Verify identity through a secure callback channel.",
-  ];
+/** Per-tactic counter-guidance — phrased as a handling instruction, not a label. */
+const COUNTER: Record<Tactic, string> = {
+  Urgency: "The rush is the attack — it is safe to slow down.",
+  FalseAuthority: "Rank is unverified — authority does not bypass verification.",
+  Pretexting: "The backstory may be fabricated — confirm identity independently.",
+  Fear: "Fear is being used as leverage — pause before you act.",
+  Reciprocity: "A favor does not earn access — hold the policy.",
+  RapportBuilding: "Friendliness is not identity — verify anyway.",
+};
+
+const GENERIC_ITEMS = [
+  "Do not share credentials or one-time codes over this call.",
+  "Escalate to your supervisor immediately.",
+  "Verify identity through a secure callback channel.",
+];
+
+function speak(text: string): void {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
+/**
+ * The operator directive — what to DO right now, shown once a critical alert
+ * fires. Names the SPECIFIC request ("The Ask") when the detector has identified
+ * it ("Do not reset MFA on account ending 4827"); otherwise generic guidance.
+ * The Speak button is manual so it is never audible to the caller unless chosen.
+ */
+export function Recommendation({
+  ask,
+  drivers = [],
+}: {
+  ask?: { action: string; target: string } | null;
+  drivers?: Tactic[];
+}) {
+  const hasAsk = !!ask && ask.action.trim().length > 0;
+  const top = drivers[0];
+  const why = top ? COUNTER[top] : "";
+  const headline = hasAsk ? `Do not ${ask!.action}` : "Hold — verify before you act";
+  const detail = hasAsk
+    ? `The caller is working to ${ask!.action}${ask!.target ? ` on ${ask!.target}` : ""} without verifying identity. Call the customer back on the number already on file before acting.`
+    : "Do not reset MFA, read back codes, or change account access. Call the customer back on the number already on file.";
+
   return (
-    <div className="glass rounded-2xl p-5 animate-fade-up border border-[var(--brand-cyan)]/20">
-      <div className="flex items-center gap-2 mb-3">
-        <ShieldCheck className="size-4 text-[var(--brand-cyan)]" />
-        <div className="text-xs uppercase tracking-widest text-muted-foreground">Recommended actions</div>
+    <div className="glass rounded-2xl p-5 animate-fade-up border border-[var(--danger)]/30">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="size-4 text-[var(--danger)]" />
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Do this now</div>
+        </div>
+        <button
+          onClick={() => speak(`${headline}. ${detail}`)}
+          title="Read aloud (for the agent's ear only)"
+          className="inline-flex items-center gap-1 rounded-full glass px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground transition"
+        >
+          <Volume2 className="size-3" /> Speak
+        </button>
       </div>
-      <ul className="space-y-2">
-        {items.map((t, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm">
-            <span className="mt-1 size-1.5 rounded-full bg-[var(--brand-cyan)] shrink-0" />
+      <div className="text-base font-semibold tracking-tight">{headline}</div>
+      <p className="text-sm text-muted-foreground mt-1">{detail}</p>
+      {(why || drivers.length > 0) && (
+        <p className="text-[11px] text-muted-foreground mt-2">
+          {drivers.length > 0 && (
+            <span className="font-medium text-foreground">
+              {drivers.slice(0, 3).map((t) => TACTIC_LABEL[t]).join(" · ")}
+            </span>
+          )}
+          {why && <> — {why}</>}
+        </p>
+      )}
+      <ul className="space-y-1.5 mt-3 pt-3 border-t border-white/5">
+        {GENERIC_ITEMS.map((t, i) => (
+          <li key={i} className="flex items-start gap-2 text-[13px] text-muted-foreground">
+            <span className="mt-1.5 size-1 rounded-full bg-[var(--brand-cyan)] shrink-0" />
             <span>{t}</span>
           </li>
         ))}
